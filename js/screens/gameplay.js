@@ -355,6 +355,7 @@ function onGameOver(e) {
     isNewTimeRecord: record?.isNewTimeRecord || false,
     unlockedLevel: record?.unlockedLevel || null,
   });
+  };
 
   // Let the coins land in the counter before the board is torn down. flyCoins
   // returns 0 (and fires straight away) when there is nothing to animate or

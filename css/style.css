@@ -179,6 +179,13 @@ h1, h2, h3, h4 { font-weight: 700; line-height: 1.15; }
 .coins-pill .stat-value { color: var(--gold); }
 .coin-icon { font-size: 1rem; line-height: 1; }
 .coins-pill.bump { animation: coin-bump 520ms var(--ease-bounce); }
+/* Set while flying coins are landing in the counter (see flyCoins). */
+.coins-pill.catch {
+  border-color: rgba(255, 201, 60, 0.8);
+  box-shadow: 0 0 34px rgba(255, 201, 60, 0.55);
+  animation: coin-catch 480ms var(--ease-bounce);
+}
+.coins-pill.catch .stat-value { text-shadow: 0 0 16px rgba(255, 201, 60, 0.9); }
 
 .stat-pill.warn { border-color: rgba(255, 84, 112, 0.5); box-shadow: 0 0 18px rgba(255, 84, 112, 0.22); }
 .stat-pill.warn .stat-value { color: var(--red); }
@@ -373,9 +380,11 @@ button:disabled, .btn-primary:disabled, .btn-secondary:disabled, .btn-gold:disab
 
 .level-card {
   position: relative;
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
-  aspect-ratio: 1 / 1;
-  padding: 12px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  /* No fixed aspect-ratio: the card carries a number, grid/clock, best time and
+     a star row, and a square box clips the last of them on narrow columns. */
+  min-height: 150px;
+  padding: 26px 12px 14px;
   background: var(--glass-bg);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius);
@@ -402,11 +411,34 @@ button:disabled, .btn-primary:disabled, .btn-secondary:disabled, .btn-gold:disab
 
 .level-num { font-size: clamp(1.6rem, 4vw, 2.1rem); font-weight: 800; line-height: 1; }
 .level-size { font-size: 0.66rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-muted); }
+/* Personal best clear time, or an em-dash placeholder before the first clear. */
+.level-best {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 0.68rem; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--cyan);
+}
+.level-best.empty { color: var(--text-muted); font-weight: 500; }
 .level-stars { display: flex; gap: 3px; font-size: 0.8rem; }
 .level-stars .star { opacity: 0.22; filter: grayscale(1); }
 .level-stars .star.earned { opacity: 1; filter: none; text-shadow: 0 0 10px rgba(255, 201, 60, 0.7); }
 
-.level-card.locked { cursor: not-allowed; opacity: 0.5; }
+/* Coin balance needed to enter, pinned opposite the difficulty tag. */
+.level-req {
+  position: absolute; top: 8px; left: 8px;
+  display: inline-flex; align-items: center; gap: 3px;
+  font-size: 0.58rem; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  padding: 3px 7px; border-radius: var(--radius-pill);
+  background: rgba(255, 201, 60, 0.14);
+  color: var(--gold);
+}
+.level-req.unmet {
+  background: rgba(255, 84, 112, 0.16);
+  color: var(--red);
+}
+
+.level-card.locked { cursor: not-allowed; opacity: 0.45; filter: grayscale(1); }
 .level-card.locked .level-num { color: var(--text-muted); }
 .level-lock { font-size: 1.5rem; opacity: 0.75; }
 /* Unlocked by progress but the coin balance gate is not met. */
@@ -881,12 +913,29 @@ button:disabled, .btn-primary:disabled, .btn-secondary:disabled, .btn-gold:disab
 .toast.error   { border-color: rgba(255, 84, 112, 0.5); box-shadow: var(--glass-shadow), 0 0 24px rgba(255, 84, 112, 0.24); }
 .toast.info    { border-color: rgba(0, 229, 255, 0.5); }
 
-/* ---------- 17. Confetti ---------- */
+/* ---------- 17. Confetti & coin flight ---------- */
 .confetti-piece {
   position: fixed; top: -14px; z-index: 70;
   width: 9px; height: 14px;
   pointer-events: none;
   animation: confetti-fall linear forwards;
+}
+
+/* One flying coin. Its whole path is a single composited transform, driven by
+   the three custom properties flyCoins() stamps on it. The fallbacks keep the
+   sprite harmless if it is ever rendered without them. */
+.coin-fly {
+  --fly-x: 0px;
+  --fly-y: 0px;
+  --fly-arc: -80px;
+  position: fixed; z-index: 95;
+  pointer-events: none; user-select: none;
+  line-height: 1;
+  filter: drop-shadow(0 0 9px rgba(255, 201, 60, 0.85));
+  will-change: transform, opacity;
+  /* forwards is safe here: sprites are removed on landing and have no
+     hover/interactive state for a locked final frame to fight with. */
+  animation: coin-fly 780ms var(--ease-out) forwards;
 }
 
 /* ---------- 18. Keyframes ---------- */
@@ -962,10 +1011,49 @@ button:disabled, .btn-primary:disabled, .btn-secondary:disabled, .btn-gold:disab
   35%  { transform: scale(1.16); }
   100% { transform: scale(1); }
 }
+/* The counter reacting as coins land in it. */
+@keyframes coin-catch {
+  0%   { transform: scale(1); }
+  30%  { transform: scale(1.2) rotate(-1.5deg); }
+  62%  { transform: scale(0.97) rotate(0.5deg); }
+  100% { transform: scale(1); }
+}
+/* Board → counter. --fly-arc lifts the coin mid-flight so it travels an arc
+   instead of a straight line; it is back to zero on arrival. */
+@keyframes coin-fly {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.35) rotate(0deg);
+  }
+  12% {
+    opacity: 1;
+    transform: translate(calc(var(--fly-x) * 0.1), calc(var(--fly-y) * 0.1 + var(--fly-arc) * 0.45))
+               scale(1.2) rotate(70deg);
+  }
+  58% {
+    opacity: 1;
+    transform: translate(calc(var(--fly-x) * 0.58), calc(var(--fly-y) * 0.58 + var(--fly-arc)))
+               scale(1) rotate(300deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--fly-x), var(--fly-y)) scale(0.4) rotate(560deg);
+  }
+}
 @keyframes star-burst {
   0%   { opacity: 0; transform: scale(0.2) rotate(-45deg); }
   60%  { opacity: 1; transform: scale(1.28) rotate(8deg); }
   100% { opacity: 1; transform: scale(1) rotate(0); }
+}
+/* The halo that keeps breathing after a star has landed. */
+@keyframes star-glow {
+  0%, 100% { text-shadow: 0 0 14px rgba(255, 201, 60, 0.62), 0 0 32px rgba(255, 157, 47, 0.34); }
+  50%      { text-shadow: 0 0 26px rgba(255, 201, 60, 1),    0 0 62px rgba(255, 157, 47, 0.7); }
+}
+/* A star that was not earned still fades in, but only to its dimmed rest state. */
+@keyframes star-dim {
+  from { opacity: 0;   transform: scale(0.45); }
+  to   { opacity: 0.2; transform: scale(0.8); }
 }
 @keyframes current-pulse {
   0%, 100% { box-shadow: var(--glass-shadow), 0 0 12px rgba(0, 229, 255, 0.4); }
