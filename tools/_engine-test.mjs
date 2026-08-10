@@ -312,16 +312,139 @@ await wait(1900);
 ok(hintHidden === 1, 'hint:hide fires after the hint duration');
 g7.destroy();
 
-group('stars and rewards');
-const L = getLevel(10);
-ok(calculateStars({ pairs: 6, moves: 6, timeLeft: L.timeLimit, timeLimit: L.timeLimit }) === 3, 'flawless run = 3 stars');
-ok(calculateStars({ pairs: 6, moves: 12, timeLeft: L.timeLimit * 0.3, timeLimit: L.timeLimit }) === 2, 'decent run = 2 stars');
-ok(calculateStars({ pairs: 6, moves: 40, timeLeft: 1, timeLimit: L.timeLimit }) === 1, 'scraped through = 1 star');
-const r1 = calculateReward({ level: L, stars: 1, timeLeft: 0, combo: 0 });
-const r3 = calculateReward({ level: L, stars: 3, timeLeft: 0, combo: 0 });
-ok(r3 > r1, `3 stars pays more than 1 (${r3} > ${r1})`);
-ok(calculateReward({ level: L, stars: 3, timeLeft: 40, combo: 5 }) > r3, 'leftover time and combo add a bonus');
-ok(calculateReward({ level: L, stars: 1, timeLeft: 0, combo: 0 }) >= 0, 'rewards never go negative');
+group('3-star rating: clear / under half the clock / under 2x pairs moves');
+const L = getLevel(10);                       // 6 pairs, 56s
+const run = (moves, timeLeft) => ({ pairs: L.pairs, moves, timeLeft, timeLimit: L.timeLimit });
+ok(calculateStars(run(6, L.timeLimit)) === 3, 'flawless run = 3 stars');
+ok(calculateStars(run(20, L.timeLimit * 0.7)) === 2, 'fast but sloppy = 2 stars (time only)');
+ok(calculateStars(run(6, L.timeLimit * 0.1)) === 2, 'slow but efficient = 2 stars (moves only)');
+ok(calculateStars(run(40, 1)) === 1, 'scraped through = 1 star, never zero on a clear');
+ok(calculateStars(run(6, 0)) >= 1, 'winning on the last tick still earns the completion star');
+// Boundaries: both tests are strict "<".
+ok(calculateStars(run(6, L.timeLimit / 2)) === 2,
+  'spending exactly half the clock misses the time star');
+ok(calculateStars(run(L.pairs * 2, L.timeLimit)) === 2,
+  `exactly ${L.pairs * 2} moves misses the move star`);
+ok(calculateStars(run(L.pairs * 2 - 1, L.timeLimit)) === 3, 'one move under the cap earns it');
+
+const detail = starCriteria(run(20, L.timeLimit * 0.7));
+ok(detail.criteria.length === 3, 'starCriteria reports all three tests, met or not');
+ok(detail.criteria.map((c) => c.key).join(',') === 'clear,time,moves', 'criteria keep star order');
+ok(detail.criteria[0].met === true, 'the completion star is always the first and always met');
+ok(detail.criteria.every((c) => c.label && c.detail), 'every criterion carries a label and a detail line');
+ok(detail.total === detail.criteria.filter((c) => c.met).length, 'total matches the met criteria');
+
+group('coin payout: base 10 + 5/second left + 2/combo match');
+ok(COIN_RULES.base === 10 && COIN_RULES.perSecondLeft === 5 && COIN_RULES.perComboMatch === 2,
+  'the published rates are 10 / 5 / 2');
+ok(calculateCoins({ timeLeft: 0, comboMatches: 0 }).total === 10, 'a bare clear pays the 10 base');
+ok(calculateCoins({ timeLeft: 12, comboMatches: 0 }).total === 10 + 60, '12s left adds 60');
+ok(calculateCoins({ timeLeft: 0, comboMatches: 3 }).total === 10 + 6, '3 combo matches add 6');
+ok(calculateCoins({ timeLeft: 12, comboMatches: 3 }).total === 76, 'the three parts sum (10+60+6)');
+ok(calculateCoins({ timeLeft: 12.9, comboMatches: 3.7 }).total === 76, 'part-seconds and part-combos floor');
+ok(calculateCoins({ timeLeft: -5, comboMatches: -2 }).total === 10, 'negatives clamp to zero, never below base');
+ok(calculateCoins({ timeLeft: 40, comboMatches: 4, won: false }).total === 0, 'a loss pays nothing');
+ok(calculateCoins().total === 10, 'calculateCoins() survives no arguments');
+
+const purse = calculateCoins({ timeLeft: 12, comboMatches: 3 });
+ok(purse.base === 10 && purse.time === 60 && purse.combo === 6, 'the purse itemises each part');
+ok(coinBreakdown(purse).length === 3, 'the breakdown lists base, time and combo');
+ok(coinBreakdown(calculateCoins({ timeLeft: 0, comboMatches: 0 })).length === 1,
+  'the breakdown drops rows worth nothing');
+ok(coinBreakdown(purse).reduce((s, r) => s + r.value, 0) === purse.total,
+  'the breakdown rows add up to the total paid');
+
+group('combo matches counted by the engine, then paid');
+const g8 = new GameManager();
+g8.init({ levelId: 1, themeId: 'fruits' });    // 2x2, 2 pairs
+g8.startGame();
+let overPayload = null;
+g8.on(EVENTS.GAME_OVER, (e) => { overPayload = e.detail; });
+const byPair = new Map();
+g8.board.cards.forEach((c) => {
+  if (!byPair.has(c.pairId)) byPair.set(c.pairId, []);
+  byPair.get(c.pairId).push(c);
+});
+for (const [, [a, b2]] of byPair) {
+  g8.flipCard(a.id);
+  g8.flipCard(b2.id);
+  await wait(430);                             // MATCH_DELAY + margin
+}
+ok(overPayload !== null, 'clearing the board ends the round');
+ok(overPayload.won === true && overPayload.result === 'won', 'the payload reports a win');
+ok(overPayload.comboMatches === 1, 'the first match of a streak is not a combo; the second is');
+ok(overPayload.moves === 2, 'a perfect 2-pair run takes 2 moves');
+ok(overPayload.stars === 3, 'a perfect run scores 3 stars');
+ok(overPayload.purse.combo === 2, 'that one combo match pays 2');
+ok(overPayload.coins === overPayload.purse.total, 'the headline coin figure is the purse total');
+ok(overPayload.coins === 10 + overPayload.purse.seconds * 5 + 2, 'the payout follows the published rule');
+ok(overPayload.timeUsed === getLevel(1).timeLimit - overPayload.timeLeft, 'timeUsed mirrors the clock');
+ok(Array.isArray(overPayload.starDetail) && overPayload.starDetail.length === 3,
+  'the win screen is handed the per-star detail');
+g8.destroy();
+
+group('progress: unlocking, records and player data in localStorage');
+memStore.clear();
+store.reset();
+store.load();
+ok(store.state.unlockedLevel === 1, 'a fresh save has only level 1 unlocked');
+ok(store.isUnlocked(1) && !store.isUnlocked(2), 'level 2 stays locked until level 1 is cleared');
+ok(typeof store.state.player.createdAt === 'string', 'the player record is stamped on first load');
+ok(typeof store.state.player.lastPlayed === 'string', 'lastPlayed is stamped every session');
+
+let unlockEvents = 0;
+bus.on(EVENTS.LEVEL_UNLOCKED, () => unlockEvents++);
+const w1 = store.recordWin(1, { stars: 2, time: 12, moves: 5 });
+ok(w1.unlockedLevel === 2 && store.isUnlocked(2), 'clearing a level unlocks the next one');
+ok(unlockEvents === 1, 'the unlock is announced on the bus');
+ok(store.getLevelRecord(1).bestTime === 12 && store.getLevelRecord(1).bestMoves === 5,
+  'the first clear records the best time and moves');
+ok(w1.isNewTimeRecord === false, 'a first clear is not reported as beating a previous time');
+ok(w1.isNewStarRecord === true, 'a first clear is a new star record');
+
+const w2 = store.recordWin(1, { stars: 1, time: 20, moves: 9 });
+ok(store.getLevelRecord(1).stars === 2, 'a worse run never lowers the star record');
+ok(store.getLevelRecord(1).bestTime === 12, 'a slower run never overwrites the best time');
+ok(store.getLevelRecord(1).clearCount === 2, 'clearCount counts every clear');
+ok(w2.unlockedLevel === null, 'replaying a cleared level unlocks nothing new');
+ok(store.state.unlockedLevel === 2, 'and does not roll progression backwards');
+
+const w3 = store.recordWin(1, { stars: 3, time: 8, moves: 3 });
+ok(w3.isNewStarRecord && w3.isNewTimeRecord, 'a better run reports both new records');
+ok(store.getLevelRecord(1).stars === 3 && store.getLevelRecord(1).bestTime === 8, 'and banks them');
+
+const saved = JSON.parse(memStore.get(SAVE_KEY));
+ok(saved.unlockedLevel === 2, 'progression is written to localStorage');
+ok(saved.levels['1'].stars === 3 && saved.levels['1'].bestTime === 8, 'per-level records are written too');
+ok(typeof saved.player.createdAt === 'string', 'the player block is part of the save file');
+
+store.recordWin(TOTAL_LEVELS, { stars: 3, time: 30, moves: 20 });
+ok(store.state.unlockedLevel <= TOTAL_LEVELS, 'clearing the last level cannot unlock a 21st');
+ok(hasNextLevel(TOTAL_LEVELS) === false, 'and hasNextLevel agrees there is nothing after it');
+
+group('coin bank persists across sessions');
+memStore.clear();
+store.reset();
+store.load();
+const before = coinBank.total;
+let earned = null;
+bus.on(EVENTS.COINS_EARNED, (e) => { earned = e.detail; });
+coinBank.award(75, { levelId: 3 });
+ok(coinBank.total === before + 75, `award() adds to the balance (${before} -> ${coinBank.total})`);
+ok(earned && earned.amount === 75 && earned.total === coinBank.total, 'coins:earned carries the delta and new total');
+ok(coinBank.lifetimeEarned === 75, 'lifetime earnings accumulate separately from the balance');
+ok(coinBank.award(0) === coinBank.total && coinBank.award(-40) === coinBank.total,
+  'awarding nothing (or a negative) is a no-op');
+ok(JSON.parse(memStore.get(SAVE_KEY)).coins === before + 75, 'the new balance is written to localStorage');
+
+const banked = coinBank.total;
+store.state.coins = 0;                         // wipe only the in-memory copy
+store.load();                                  // re-read the save file, as a new session would
+ok(coinBank.total === banked, 'the balance survives a reload from localStorage');
+ok(coinBank.lifetimeEarned === 75, 'so does the lifetime total');
+ok(coinBank.canAfford(banked) && !coinBank.canAfford(banked + 1), 'canAfford reads the restored balance');
+ok(coinBank.spend(banked) === true && coinBank.total === 0, 'spend() draws the balance down');
+ok(coinBank.spend(1) === false, 'spend() refuses to overdraw');
 
 group('timer ring: green -> red ramp');
 ok(timerColor(1).tone === 'safe' && timerColor(1).stroke === '#37e2a0', 'a full clock is green');
