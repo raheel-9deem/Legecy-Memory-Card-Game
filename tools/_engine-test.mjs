@@ -86,7 +86,8 @@ for (const [k, ls] of tiers) {
 }
 ok(tierDesc, 'timeLimit strictly tightens with each level inside a tier');
 ok(LEVELS.every((l) => l.timeLimit / l.pairs >= 5), 'every level allows at least 5s per pair (stays playable)');
-ok(LEVELS.every((l) => l.reward > 0), 'every level pays a base reward');
+ok(LEVELS.every((l) => l.requiredCoins >= 0), 'no level asks for a negative coin balance');
+ok(LEVELS[0].requiredCoins === 0, 'level 1 has no coin gate');
 
 group('emoji themes');
 ok(THEME_IDS.length >= 10, `${THEME_IDS.length} themes available (spec named 9 + "and more")`);
