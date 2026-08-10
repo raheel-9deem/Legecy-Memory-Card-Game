@@ -28,9 +28,10 @@ js/
   main.js               Bootstrap — wires storage, header, router, particles, pause
   core/
     game.js             Engine: GameManager, GameBoard, Card (no DOM)
-    levels.js           20 level definitions, star and reward maths
+    levels.js           20 level definitions + the 3-star rating maths
+    coins.js            Coin payout formula and the persistent coin bank
     router.js           SPA router; lazy-loads screens with dynamic import()
-    storage.js          localStorage save file + coin economy
+    storage.js          localStorage save file: player, progress, coins
     events.js           EventBus (EventTarget) + EVENTS name table
   data/
     themes.js           12 emoji symbol sets + random theme selection
