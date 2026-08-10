@@ -122,13 +122,56 @@ default (the free "Surprise Me" store option), weighted so easy levels stay gent
 expert levels can pull the trickier lookalike sets. Equipping a specific theme in the
 store pins it instead.
 
-## Economy
+## Stars
 
-- **Stars** rated on move efficiency and time remaining; coins scale with stars, time left
-  and best combo.
+Three independent tests, so a fast-but-sloppy clear and a slow-but-tidy clear both land
+on two stars:
+
+| Star | Earned for                                      |
+| ---- | ----------------------------------------------- |
+| ★ 1  | Clearing the board at all                        |
+| ★ 2  | Finishing in **under half** the level's time limit |
+| ★ 3  | Finishing in **fewer than 2 × pairs** moves      |
+
+Both thresholds are strict: exactly half the clock, or exactly `2 × pairs` moves, misses.
+The win screen reveals the stars one at a time (260ms apart, each with its own chime and a
+breathing gold glow) and then lists **every** criterion — met or missed, with the number you
+needed — so a missing star is never a guess.
+
+## Coins
+
+```
+10  base, for clearing the level
+ 5  per whole second left on the clock
+ 2  per combo match (every match after the first in an unbroken run)
+```
+
+A loss pays nothing. Hard mode adds 25%. On a win the coins **fly from the board to the
+header counter** along an arced path, and the counter tweens up as they land — the balance
+itself is banked the instant it is earned, so leaving mid-flight can never lose a payout.
+`core/coins.js` computes and banks; `ui/effects.js` owns the animation, keeping `core/`
+free of DOM.
+
 - **Power-ups** — Reveal (peek at every card), Freeze (stop the clock 10s), Shuffle.
 - **Store** — 5 card backs, 12 themes plus the free random option, restockable power-ups.
-- **Progress** is saved to `localStorage` under `memory-master:save:v2`.
+
+## Progress
+
+Clearing a level unlocks the next one and writes the run to `localStorage` under
+`memory-master:save:v2` — one save file holding the player record (`createdAt`,
+`lastPlayed`, games played, best combo), the coin balance and lifetime earnings, per-level
+best time / best stars / clear count, purchases and settings. Best records only ever
+improve; a weaker replay leaves them alone.
+
+**Level select** shows all 20 in a scrollable grid and scrolls to where you are. Each card
+carries its number, grid size, difficulty, the coin balance the level gates on (red when
+you are short), your best time and your stars. Locked levels are greyed, desaturated and
+show a padlock.
+
+**Win screen** reveals the stars, then time, moves and coins earned with the payout
+itemised line by line, the score and best combo, a "Level N unlocked" pill and a note when
+you have beaten your own record — then offers **Play Next Level**, Play Again, Level Select
+or Main Menu. Level 20 drops the next-level button.
 
 Keyboard: `Esc` / `P` pause, `M` main menu. The board auto-pauses if you switch tabs.
 
