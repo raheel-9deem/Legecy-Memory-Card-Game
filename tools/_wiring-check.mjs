@@ -130,12 +130,63 @@ for (const c of [
   'timer-ring-value', 'timer-ring-state', 'card-symbol', 'card-back-icon',
   'card-front', 'card-back', 'card-inner', 'card-face',
   'level-gate', 'gated', 'result-timeout', 'board-wrap', 'mismatch',
+  // coin flight + level meta + win screen (star reveal, criteria, breakdown)
+  'coin-fly', 'catch', 'coins-pill', 'level-req', 'level-best',
+  'star-criteria', 'crit-mark', 'crit-text', 'crit-label', 'crit-detail',
+  'coin-breakdown', 'coin-row', 'coin-row-label', 'coin-row-value',
+  'result-meta', 'result-unlock', 'result-record',
 ]) {
   ok(cssClasses.has(c), `.${c} has a rule in style.css`);
 }
-ok(/@keyframes\s+mismatch-shake/.test(css), '@keyframes mismatch-shake exists');
-ok(/@keyframes\s+matched-glow/.test(css), '@keyframes matched-glow exists');
-ok(/@keyframes\s+timer-alarm/.test(css), '@keyframes timer-alarm exists');
+for (const kf of [
+  'mismatch-shake', 'matched-glow', 'timer-alarm',
+  'coin-fly', 'coin-catch', 'star-burst', 'star-glow', 'star-dim',
+]) {
+  ok(new RegExp(`@keyframes\\s+${kf}\\b`).test(css), `@keyframes ${kf} exists`);
+}
+
+group('coin economy contract');
+const coinsSrc   = read(join(ROOT, 'js/core/coins.js'));
+const effectsSrc = read(join(ROOT, 'js/ui/effects.js'));
+const storageSrc = read(join(ROOT, 'js/core/storage.js'));
+const levelsSrc  = read(join(ROOT, 'js/core/levels.js'));
+const winSrc     = read(join(ROOT, 'js/screens/win.js'));
+const levelSelSrc = read(join(ROOT, 'js/screens/level-select.js'));
+const gpSrc      = read(join(ROOT, 'js/screens/gameplay.js'));
+const hdrSrc     = read(join(ROOT, 'js/ui/header.js'));
+ok(/base:\s*10/.test(coinsSrc), 'the base payout is 10 coins');
+ok(/perSecondLeft:\s*5/.test(coinsSrc), 'each remaining second pays 5');
+ok(/perComboMatch:\s*2/.test(coinsSrc), 'each combo match pays 2');
+ok(/localStorage/.test(storageSrc) && !/localStorage/.test(coinsSrc),
+  'coins persist through storage.js — coins.js never opens a second localStorage key');
+ok(/export function flyCoins/.test(effectsSrc), 'effects.js owns the coin flight (core/ stays DOM-free)');
+ok(!/document\./.test(coinsSrc), 'core/coins.js touches no DOM');
+for (const prop of ['--fly-x', '--fly-y', '--fly-arc']) {
+  ok(effectsSrc.includes(prop) && css.includes(prop), `${prop} is set by flyCoins and read by the keyframes`);
+}
+ok(/coins-pill/.test(effectsSrc), 'the flight targets the header coin pill by default');
+ok(/prefers-reduced-motion/.test(effectsSrc), 'the flight is skipped under prefers-reduced-motion');
+ok(/coinBank\.award\(/.test(gpSrc), 'gameplay banks the payout through coinBank');
+ok(/flyCoins\(/.test(gpSrc), 'and throws the coins at the counter');
+ok(/rollCoins/.test(hdrSrc) && /rollCoins/.test(gpSrc), 'the counter climbs as the coins land');
+ok(/coinBreakdown/.test(winSrc), 'the win screen itemises the payout');
+
+group('progression + star rating contract');
+ok(/timeLimit\s*\/\s*2/.test(levelsSrc), 'star 2 is measured against half the time limit');
+ok(/pairs\s*\*\s*2/.test(levelsSrc), 'star 3 is measured against 2 x pairs moves');
+ok(/export function starCriteria/.test(levelsSrc), 'starCriteria reports every test, not just the total');
+ok(!/calculateReward/.test(allSrc), 'the old calculateReward is gone from every module');
+ok(/unlockedLevel\s*=\s*levelId\s*\+\s*1/.test(storageSrc), 'clearing a level unlocks the next id');
+ok(/levelId\s*<\s*TOTAL_LEVELS/.test(storageSrc), 'and never unlocks past the last level');
+ok(/player:\s*\{[^}]*createdAt/.test(storageSrc), 'the save file carries a player record');
+ok(/bestTime/.test(levelSelSrc), 'level select shows the best time');
+ok(/level-req/.test(levelSelSrc), 'level select shows the coin balance a level gates on');
+ok(/level-lock/.test(levelSelSrc), 'locked levels show a lock icon');
+ok(/starDetail/.test(winSrc) && /starDetail/.test(gpSrc), 'the per-star detail reaches the win screen');
+ok(/--i:/.test(winSrc) && /var\(--i/.test(css), 'the star reveal is staggered by index');
+const levelCardBlock = css.replace(/\/\*[\s\S]*?\*\//g, '').match(/\.level-card\s*\{[^}]*\}/s)?.[0] || '';
+ok(!/aspect-ratio/.test(levelCardBlock) && /min-height/.test(levelCardBlock),
+  '.level-card is no longer a fixed square (it carries four meta rows)');
 
 group('card flip contract');
 ok(/--t-flip:\s*600ms/.test(css), 'the flip animation is 600ms (0.6s)');
