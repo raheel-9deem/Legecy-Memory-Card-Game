@@ -17,14 +17,17 @@ globalThis.localStorage = {
   removeItem: (k) => memStore.delete(k),
 };
 
-const { LEVELS, TOTAL_LEVELS, getLevel, hasNextLevel, calculateStars, calculateReward, themeForLevel } =
+const { LEVELS, TOTAL_LEVELS, getLevel, hasNextLevel, calculateStars, starCriteria, themeForLevel } =
   await mod('core/levels.mjs');
 const { THEMES, THEME_IDS, getTheme, randomThemeId } = await mod('data/themes.mjs');
 const { GameManager, GAME_STATE, Card, GameBoard } = await mod('core/game.mjs');
-const { EVENTS } = await mod('core/events.mjs');
+const { EVENTS, bus } = await mod('core/events.mjs');
 const { STORE_ITEMS } = await mod('data/store-items.mjs');
 const { store } = await mod('core/storage.mjs');
+const { COIN_RULES, calculateCoins, coinBreakdown, coinBank } = await mod('core/coins.mjs');
 const { timerColor, TimerRing, formatClock } = await mod('ui/timer-ring.mjs');
+
+const SAVE_KEY = 'memory-master:save:v2';
 
 let pass = 0;
 const failures = [];
