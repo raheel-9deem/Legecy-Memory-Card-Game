@@ -321,10 +321,12 @@ function onGameOver(e) {
   const level = getLevel(levelId);
   let coins = d.coins;
   let record = null;
+  let balanceBefore = coinBank.total;
 
   if (d.won) {
     if (store.getSetting('hardMode')) coins = Math.round(coins * HARD_MODE_BONUS);
     record = store.recordWin(levelId, { stars: d.stars, time: d.timeUsed, moves: d.moves });
+    balanceBefore = coinBank.total;
     coinBank.award(coins, { levelId, purse: d.purse });
     store.recordMatchStats({ matches: d.total, combo: d.bestCombo });
     audio.win();
@@ -336,32 +338,35 @@ function onGameOver(e) {
     // The player may have hit Home while the coins were still in the air.
     if (!mounted) return;
     routerRef?.navigate('win', {
-    won: d.won,
-    levelId,
-    stars: d.stars,
-    starDetail: d.starDetail,
-    coins,
-    purse: d.purse,
-    moves: d.moves,
-    score: d.score,
-    bestCombo: d.bestCombo,
-    comboMatches: d.comboMatches,
-    timeUsed: d.timeUsed,
-    timeLimit: level.timeLimit,
-    matched: d.matched,
-    total: d.total,
-    pairs: level.pairs,
-    isNewStarRecord: record?.isNewStarRecord || false,
-    isNewTimeRecord: record?.isNewTimeRecord || false,
-    unlockedLevel: record?.unlockedLevel || null,
-  });
+      won: d.won,
+      levelId,
+      stars: d.stars,
+      starDetail: d.starDetail,
+      coins,
+      purse: d.purse,
+      moves: d.moves,
+      score: d.score,
+      bestCombo: d.bestCombo,
+      comboMatches: d.comboMatches,
+      timeUsed: d.timeUsed,
+      timeLimit: level.timeLimit,
+      matched: d.matched,
+      total: d.total,
+      pairs: level.pairs,
+      isNewStarRecord: record?.isNewStarRecord || false,
+      isNewTimeRecord: record?.isNewTimeRecord || false,
+      unlockedLevel: record?.unlockedLevel || null,
+    });
   };
 
   // Let the coins land in the counter before the board is torn down. flyCoins
   // returns 0 (and fires straight away) when there is nothing to animate or
   // the player prefers reduced motion, so this never stalls.
   if (d.won && coins > 0) {
-    flyCoins({ from: wrapEl, amount: coins, onDone: goToResults });
+    const flightMs = flyCoins({ from: wrapEl, amount: coins, onDone: goToResults });
+    // The balance was banked (and the header set) the moment it was awarded;
+    // roll the display up so the number climbs with the arriving coins.
+    if (flightMs) header.rollCoins(balanceBefore, coinBank.total, flightMs * 0.85);
   } else {
     goToResults();
   }
