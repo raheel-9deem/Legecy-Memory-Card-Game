@@ -157,7 +157,9 @@ const hdrSrc     = read(join(ROOT, 'js/ui/header.js'));
 ok(/base:\s*10/.test(coinsSrc), 'the base payout is 10 coins');
 ok(/perSecondLeft:\s*5/.test(coinsSrc), 'each remaining second pays 5');
 ok(/perComboMatch:\s*2/.test(coinsSrc), 'each combo match pays 2');
-ok(/localStorage/.test(storageSrc) && !/localStorage/.test(coinsSrc),
+// Strip comments first: coins.js *documents* why it does not open its own key.
+const coinsCode = coinsSrc.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+ok(/localStorage/.test(storageSrc) && !/localStorage/.test(coinsCode),
   'coins persist through storage.js — coins.js never opens a second localStorage key');
 ok(/export function flyCoins/.test(effectsSrc), 'effects.js owns the coin flight (core/ stays DOM-free)');
 ok(!/document\./.test(coinsSrc), 'core/coins.js touches no DOM');
