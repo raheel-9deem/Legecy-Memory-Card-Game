@@ -787,12 +787,17 @@ button:disabled, .btn-primary:disabled, .btn-secondary:disabled, .btn-gold:disab
 }
 
 /* ---------- 14. Win / result screen ---------- */
-#screen-win { align-items: center; justify-content: center; }
+/* Not justify-content:center — the card now carries a criteria list and a coin
+   breakdown, and a centred flex child that outgrows its container gets its top
+   clipped past the scroll origin. `margin:auto` on the card centres it while
+   still letting the screen scroll. */
+#screen-win { align-items: center; overflow-y: auto; overscroll-behavior: contain; }
 
 .result-card {
   width: 100%; max-width: 480px;
+  margin: auto;
   text-align: center;
-  display: flex; flex-direction: column; gap: 20px; align-items: center;
+  display: flex; flex-direction: column; gap: 16px; align-items: center;
   animation: pop-in 560ms var(--ease-bounce) both;
 }
 .result-title {
@@ -810,13 +815,45 @@ button:disabled, .btn-primary:disabled, .btn-secondary:disabled, .btn-gold:disab
 
 .result-stars { display: flex; gap: 14px; justify-content: center; font-size: clamp(2.1rem, 8vw, 3rem); }
 .result-stars .star { opacity: 0.2; filter: grayscale(1); transform: scale(0.8); }
+/* Stars land one after another (--i is the index), then keep breathing.
+   backwards, not both: the glow loop owns the resting text-shadow. */
 .result-stars .star.earned {
-  opacity: 1; filter: none;
-  text-shadow: 0 0 18px rgba(255, 201, 60, 0.85);
-  animation: star-burst 620ms var(--ease-bounce) both;
+  opacity: 1; filter: none; transform: none;
+  color: var(--gold);
+  animation: star-burst 620ms var(--ease-bounce) backwards,
+             star-glow 2.4s ease-in-out infinite;
+  animation-delay: calc(var(--i, 0) * 260ms),
+                   calc(var(--i, 0) * 260ms + 620ms);
 }
-.result-stars .star.earned:nth-child(2) { animation-delay: 180ms; }
-.result-stars .star.earned:nth-child(3) { animation-delay: 360ms; }
+.result-stars .star:not(.earned) {
+  animation: star-dim 420ms var(--ease-out) backwards;
+  animation-delay: calc(var(--i, 0) * 260ms);
+}
+
+/* Which of the three tests passed — a missed star is explained, not guessed. */
+.star-criteria {
+  list-style: none;
+  display: flex; flex-direction: column; gap: 7px;
+  width: 100%;
+  text-align: left;
+}
+.star-criteria li {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 13px;
+  background: var(--glass-bg-strong);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  animation: fade-up 420ms var(--ease-out) backwards;
+  animation-delay: calc(760ms + var(--i, 0) * 130ms);
+}
+.star-criteria li.met { border-color: rgba(255, 201, 60, 0.34); }
+.star-criteria li.missed { opacity: 0.62; }
+.crit-mark { font-size: 1.05rem; line-height: 1; flex: 0 0 auto; }
+.star-criteria li.met .crit-mark { color: var(--gold); text-shadow: 0 0 12px rgba(255, 201, 60, 0.8); }
+.star-criteria li.missed .crit-mark { color: var(--text-muted); }
+.crit-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.crit-label { font-size: 0.8rem; font-weight: 600; }
+.crit-detail { font-size: 0.66rem; color: var(--text-muted); }
 
 .result-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; width: 100%; }
 .result-stat {
@@ -839,6 +876,40 @@ button:disabled, .btn-primary:disabled, .btn-secondary:disabled, .btn-gold:disab
   box-shadow: 0 0 26px rgba(255, 201, 60, 0.2);
   animation: coin-bump 700ms 300ms var(--ease-bounce) both;
 }
+
+/* Itemised payout: base + time bonus + combo bonus. */
+.coin-breakdown {
+  display: flex; flex-direction: column;
+  width: 100%;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.coin-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 9px 14px;
+  text-align: left;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+.coin-row:last-child { border-bottom: none; }
+.coin-row-label { display: flex; flex-direction: column; font-size: 0.78rem; font-weight: 600; }
+.coin-row-label em { font-style: normal; font-size: 0.64rem; color: var(--text-muted); }
+.coin-row-value {
+  font-size: 0.92rem; font-weight: 800; color: var(--gold);
+  font-variant-numeric: tabular-nums;
+}
+
+.result-meta { font-size: 0.72rem; color: var(--text-muted); letter-spacing: 0.04em; }
+.result-unlock {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 9px 20px;
+  font-size: 0.84rem; font-weight: 700; color: var(--cyan);
+  background: rgba(0, 229, 255, 0.1);
+  border: 1px solid rgba(0, 229, 255, 0.36);
+  border-radius: var(--radius-pill);
+  animation: pop-in 460ms 620ms var(--ease-bounce) backwards;
+}
+.result-record { font-size: 0.8rem; font-weight: 700; color: var(--gold); }
 
 .result-actions { display: flex; flex-direction: column; gap: 10px; width: 100%; }
 .result-actions > * { width: 100%; }
@@ -1098,7 +1169,10 @@ button:disabled, .btn-primary:disabled, .btn-secondary:disabled, .btn-gold:disab
   .menu-tagline { letter-spacing: 0.22em; }
 
   .level-grid { grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 10px; }
+  .level-card { min-height: 126px; padding: 22px 6px 12px; gap: 4px; }
   .level-size { font-size: 0.58rem; }
+  .level-best { font-size: 0.6rem; }
+  .level-req { top: 6px; left: 6px; padding: 2px 5px; font-size: 0.52rem; }
   .difficulty-tag { display: none; }
 
   .store-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
