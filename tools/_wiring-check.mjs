@@ -162,7 +162,7 @@ const coinsCode = coinsSrc.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$
 ok(/localStorage/.test(storageSrc) && !/localStorage/.test(coinsCode),
   'coins persist through storage.js — coins.js never opens a second localStorage key');
 ok(/export function flyCoins/.test(effectsSrc), 'effects.js owns the coin flight (core/ stays DOM-free)');
-ok(!/document\./.test(coinsSrc), 'core/coins.js touches no DOM');
+ok(!/document\./.test(coinsCode), 'core/coins.js touches no DOM');
 for (const prop of ['--fly-x', '--fly-y', '--fly-arc']) {
   ok(effectsSrc.includes(prop) && css.includes(prop), `${prop} is set by flyCoins and read by the keyframes`);
 }
