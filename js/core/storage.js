@@ -14,13 +14,15 @@ function defaults() {
   return {
     coins: 150,
     unlockedLevel: 1,
-    /** levelId -> { stars, bestTime, bestMoves, cleared } */
+    /** levelId -> { stars, bestTime, bestMoves, cleared, clearCount } */
     levels: {},
     owned: ['back-nebula', 'auto', 'fruits'],
     equipped: { cardBack: 'back-nebula', theme: 'auto' },
     powerups: { hint: 2, freeze: 1, shuffle: 1 },
     settings: { sound: true, particles: true, hardMode: false },
     stats: { gamesPlayed: 0, gamesWon: 0, totalMatches: 0, bestCombo: 0 },
+    /** Cross-session player record. */
+    player: { createdAt: null, lastPlayed: null, totalCoinsEarned: 0 },
   };
 }
 
@@ -45,6 +47,7 @@ class SaveStore {
           powerups: { ...defaults().powerups, ...(parsed.powerups || {}) },
           settings: { ...defaults().settings, ...(parsed.settings || {}) },
           stats:    { ...defaults().stats,    ...(parsed.stats    || {}) },
+          player:   { ...defaults().player,   ...(parsed.player   || {}) },
           levels:   parsed.levels || {},
           owned:    Array.isArray(parsed.owned) ? parsed.owned : defaults().owned,
         };
@@ -54,6 +57,13 @@ class SaveStore {
       this._available = false;
       this.state = defaults();
     }
+
+    // Stamp the player record on first run and on every session start.
+    const now = new Date().toISOString();
+    if (!this.state.player.createdAt) this.state.player.createdAt = now;
+    this.state.player.lastPlayed = now;
+    this.save();
+
     return this.state;
   }
 
@@ -102,7 +112,8 @@ class SaveStore {
   // ---------- level progress ----------
 
   getLevelRecord(id) {
-    return this.state.levels[id] || { stars: 0, bestTime: null, bestMoves: null, cleared: false };
+    return this.state.levels[id] ||
+      { stars: 0, bestTime: null, bestMoves: null, cleared: false, clearCount: 0 };
   }
 
   isUnlocked(id) { return Number(id) <= this.state.unlockedLevel; }
@@ -127,7 +138,12 @@ class SaveStore {
     return Object.values(this.state.levels).filter((r) => r.cleared).length;
   }
 
-  /** Record a win; only improves existing bests. */
+  /**
+   * Record a win: bank the best-ever stars/time/moves and unlock the next
+   * level. Only ever improves an existing record.
+   * @returns {{record:object, isNewStarRecord:boolean, isNewTimeRecord:boolean,
+   *            unlockedLevel:number|null}}
+   */
   recordWin(id, { stars, time, moves }) {
     const levelId = Number(id);
     const prev = this.getLevelRecord(levelId);
@@ -136,16 +152,25 @@ class SaveStore {
       stars: Math.max(prev.stars || 0, stars),
       bestTime: prev.bestTime == null ? time : Math.min(prev.bestTime, time),
       bestMoves: prev.bestMoves == null ? moves : Math.min(prev.bestMoves, moves),
+      clearCount: (prev.clearCount || 0) + 1,
     };
     this.state.levels[levelId] = record;
 
     const isNewStarRecord = record.stars > (prev.stars || 0);
+    const isNewTimeRecord = prev.bestTime != null && time < prev.bestTime;
+
+    // Clearing a level unlocks the next one.
+    let unlockedLevel = null;
     if (levelId >= this.state.unlockedLevel && levelId < TOTAL_LEVELS) {
       this.state.unlockedLevel = levelId + 1;
+      unlockedLevel = this.state.unlockedLevel;
     }
+
     this.state.stats.gamesWon += 1;
     this.save();
-    return { record, isNewStarRecord };
+
+    if (unlockedLevel) bus.emit(EVENTS.LEVEL_UNLOCKED, { levelId: unlockedLevel });
+    return { record, isNewStarRecord, isNewTimeRecord, unlockedLevel };
   }
 
   recordPlay() {

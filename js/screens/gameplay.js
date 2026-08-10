@@ -8,12 +8,13 @@
 import { gameManager } from '../core/game.js';
 import { bus, EVENTS } from '../core/events.js';
 import { store } from '../core/storage.js';
+import { coinBank } from '../core/coins.js';
 import { getLevel } from '../core/levels.js';
 import { getCardBack, POWERUP_META } from '../data/store-items.js';
 import { header } from '../ui/header.js';
 import { audio } from '../ui/audio.js';
 import { toast } from '../ui/toast.js';
-import { comboFlash } from '../ui/effects.js';
+import { comboFlash, flyCoins } from '../ui/effects.js';
 import { timerRing, TimerRing } from '../ui/timer-ring.js';
 
 const POWERUP_ORDER = ['hint', 'freeze', 'shuffle'];
@@ -27,6 +28,8 @@ let progressEl = null;
 let routerRef = null;
 let levelId = 1;
 let resizeHandler = null;
+/** Guards the deferred navigation while the coin payout is in flight. */
+let mounted = false;
 
 export default {
   title: 'Playing',
@@ -63,6 +66,7 @@ export default {
 
   mount(el, params, router) {
     routerRef = router;
+    mounted = true;
     boardEl = el.querySelector('#game-board');
     wrapEl = el.querySelector('#board-wrap');
     progressEl = el.querySelector('#progress-fill');
@@ -133,6 +137,7 @@ export default {
   },
 
   unmount() {
+    mounted = false;
     unsubs.forEach((fn) => fn());
     unsubs = [];
     window.removeEventListener('resize', resizeHandler);
@@ -315,33 +320,50 @@ function onGameOver(e) {
   const d = e.detail;
   const level = getLevel(levelId);
   let coins = d.coins;
-  let isNewStarRecord = false;
+  let record = null;
 
   if (d.won) {
     if (store.getSetting('hardMode')) coins = Math.round(coins * HARD_MODE_BONUS);
-    const result = store.recordWin(levelId, { stars: d.stars, time: d.timeUsed, moves: d.moves });
-    isNewStarRecord = result.isNewStarRecord;
-    store.addCoins(coins);
+    record = store.recordWin(levelId, { stars: d.stars, time: d.timeUsed, moves: d.moves });
+    coinBank.award(coins, { levelId, purse: d.purse });
     store.recordMatchStats({ matches: d.total, combo: d.bestCombo });
     audio.win();
   } else {
     audio.lose();
   }
 
-  routerRef?.navigate('win', {
+  const goToResults = () => {
+    // The player may have hit Home while the coins were still in the air.
+    if (!mounted) return;
+    routerRef?.navigate('win', {
     won: d.won,
     levelId,
     stars: d.stars,
+    starDetail: d.starDetail,
     coins,
+    purse: d.purse,
     moves: d.moves,
     score: d.score,
     bestCombo: d.bestCombo,
+    comboMatches: d.comboMatches,
     timeUsed: d.timeUsed,
+    timeLimit: level.timeLimit,
     matched: d.matched,
     total: d.total,
     pairs: level.pairs,
-    isNewStarRecord,
+    isNewStarRecord: record?.isNewStarRecord || false,
+    isNewTimeRecord: record?.isNewTimeRecord || false,
+    unlockedLevel: record?.unlockedLevel || null,
   });
+
+  // Let the coins land in the counter before the board is torn down. flyCoins
+  // returns 0 (and fires straight away) when there is nothing to animate or
+  // the player prefers reduced motion, so this never stalls.
+  if (d.won && coins > 0) {
+    flyCoins({ from: wrapEl, amount: coins, onDone: goToResults });
+  } else {
+    goToResults();
+  }
 }
 
 /* ============================================================

@@ -11,7 +11,8 @@
  */
 
 import { EventBus, EVENTS } from './events.js';
-import { getLevel, calculateStars, calculateReward, themeForLevel } from './levels.js';
+import { getLevel, starCriteria, themeForLevel } from './levels.js';
+import { calculateCoins } from './coins.js';
 import { getTheme } from '../data/themes.js';
 import { POWERUP_META } from '../data/store-items.js';
 
@@ -171,6 +172,8 @@ export class GameManager extends EventBus {
     this.score = 0;
     this.combo = 0;
     this.bestCombo = 0;
+    /** Matches that extended a streak — the 2nd, 3rd, … in a row. Pays coins. */
+    this.comboMatches = 0;
     this.timeLeft = 0;
     this.elapsed = 0;
     this.locked = false;
@@ -204,6 +207,7 @@ export class GameManager extends EventBus {
     this.score = 0;
     this.combo = 0;
     this.bestCombo = 0;
+    this.comboMatches = 0;
     this.elapsed = 0;
     this.timeLeft = this.level.timeLimit;
     this.locked = false;
@@ -275,24 +279,27 @@ export class GameManager extends EventBus {
     this.locked = true;
 
     const won = result === 'won';
-    const stars = won
-      ? calculateStars({
-          pairs: this.board.pairsTotal,
-          moves: this.moves,
-          timeLeft: this.timeLeft,
-          timeLimit: this.level.timeLimit,
-        })
-      : 0;
-    const coins = won
-      ? calculateReward({ level: this.level, stars, timeLeft: this.timeLeft, combo: this.bestCombo })
-      : 0;
+    const run = {
+      pairs: this.board.pairsTotal,
+      moves: this.moves,
+      timeLeft: this.timeLeft,
+      timeLimit: this.level.timeLimit,
+    };
+    const rating = won ? starCriteria(run) : { total: 0, criteria: [] };
+    const purse = calculateCoins({
+      timeLeft: this.timeLeft,
+      comboMatches: this.comboMatches,
+      won,
+    });
 
     const payload = {
       ...this.snapshot(),
       result,
       won,
-      stars,
-      coins,
+      stars: rating.total,
+      starDetail: rating.criteria,
+      coins: purse.total,
+      purse,
       timeUsed: this.level.timeLimit - this.timeLeft,
     };
     this.emit(EVENTS.GAME_OVER, payload);
@@ -343,11 +350,14 @@ export class GameManager extends EventBus {
     second.setMatched();
     this.combo += 1;
     this.bestCombo = Math.max(this.bestCombo, this.combo);
+    // The first match of a streak is not a combo; every one after it is.
+    if (this.combo >= 2) this.comboMatches += 1;
     this.score += 100 * this.combo;
 
     this.emit(EVENTS.PAIR_MATCH, {
       cards: [first.toJSON(), second.toJSON()],
       combo: this.combo,
+      comboMatches: this.comboMatches,
       ...this.snapshot(),
     });
     this._emitProgress();
@@ -483,6 +493,7 @@ export class GameManager extends EventBus {
       score: this.score,
       combo: this.combo,
       bestCombo: this.bestCombo,
+      comboMatches: this.comboMatches,
       timeLeft: this.timeLeft,
       elapsed: this.elapsed,
       timeLimit: this.level ? this.level.timeLimit : 0,

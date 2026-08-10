@@ -58,7 +58,6 @@ export const LEVELS = TIERS.flatMap((tier) => {
       requiredCoins: tier.coins[i],
       theme: THEME_ROTATION[id - 1] || 'fruits',
       difficulty: difficultyFor(id),
-      reward: 20 + pairs * 8 + id * 4,
       label: `${tier.rows} × ${tier.cols}`,
     });
   }
@@ -82,23 +81,55 @@ export function themeForLevel(level, preference = 'auto') {
 }
 
 /**
- * Star rating: move efficiency first, time remaining second.
- * 3 stars = near-perfect recall, 1 star = cleared it at all.
+ * The three stars, each an independent test:
+ *
+ *   ★1  cleared the level at all
+ *   ★2  finished in under half the time limit
+ *   ★3  finished in fewer than 2 × pairs moves
+ *
+ * Stars 2 and 3 are independent, so a fast-but-sloppy clear and a
+ * slow-but-efficient one both score 2. Every criterion is reported so the
+ * win screen can show exactly which one was missed.
+ *
+ * @param {{pairs:number, moves:number, timeLeft:number, timeLimit:number}} run
+ * @returns {{total:number, criteria:Array<{key:string,label:string,met:boolean,detail:string}>}}
  */
-export function calculateStars({ pairs, moves, timeLeft, timeLimit }) {
-  const moveRatio = moves / pairs;                        // 1.0 == flawless
-  const timeRatio = timeLimit > 0 ? timeLeft / timeLimit : 1;
+export function starCriteria({ pairs, moves, timeLeft, timeLimit }) {
+  const timeUsed  = Math.max(0, timeLimit - timeLeft);
+  const halfClock = timeLimit / 2;
+  const moveCap   = pairs * 2;
 
-  if (moveRatio <= 1.45 && timeRatio >= 0.4) return 3;
-  if (moveRatio <= 2.2  && timeRatio >= 0.15) return 2;
-  return 1;
+  const criteria = [
+    {
+      key: 'clear',
+      label: 'Level cleared',
+      met: true,
+      detail: `all ${pairs} pairs matched`,
+    },
+    {
+      key: 'time',
+      label: `Finished under ${formatClock(halfClock)}`,
+      met: timeLimit > 0 && timeUsed < halfClock,
+      detail: `took ${formatClock(timeUsed)} of ${formatClock(timeLimit)}`,
+    },
+    {
+      key: 'moves',
+      label: `Fewer than ${moveCap} moves`,
+      met: moves < moveCap,
+      detail: `used ${moves} move${moves === 1 ? '' : 's'}`,
+    },
+  ];
+
+  return { total: criteria.filter((c) => c.met).length, criteria };
 }
 
-/** Coins awarded for clearing a level. */
-export function calculateReward({ level, stars, timeLeft, combo = 0 }) {
-  const base       = level.reward;
-  const starBonus  = (stars - 1) * Math.round(level.reward * 0.35);
-  const timeBonus  = Math.round(timeLeft * 0.6);
-  const comboBonus = combo * 5;
-  return Math.max(0, base + starBonus + timeBonus + comboBonus);
+/** Star count only (1–3). See starCriteria for the per-star detail. */
+export function calculateStars(run) {
+  return starCriteria(run).total;
+}
+
+/** m:ss — kept local so levels.js stays free of UI imports. */
+function formatClock(seconds) {
+  const s = Math.max(0, Math.round(seconds));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
