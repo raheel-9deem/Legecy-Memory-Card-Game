@@ -37,7 +37,7 @@ group('file layout');
 for (const f of [
   'index.html', 'css/style.css', 'js/main.js',
   'js/core/game.js', 'js/core/levels.js', 'js/core/events.js',
-  'js/core/router.js', 'js/core/storage.js',
+  'js/core/router.js', 'js/core/storage.js', 'js/core/coins.js',
   'js/data/themes.js', 'js/data/store-items.js',
   'js/screens/menu.js', 'js/screens/level-select.js', 'js/screens/gameplay.js',
   'js/screens/store.js', 'js/screens/win.js',
