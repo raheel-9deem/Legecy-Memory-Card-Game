@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Memory Master</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <!-- Background particle canvas -->
+  <canvas id="particle-canvas"></canvas>
+
+  <!-- Base layout -->
+  <div id="app">
+    <header id="main-header" class="hidden">
+      <div class="header-left">
+        <button id="btn-menu" class="icon-btn" aria-label="Back to menu">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        </button>
+        <span id="header-title" class="header-title">Memory Master</span>
+      </div>
+      <div class="header-center">
+        <div id="level-display" class="stat-pill">
+          <span class="stat-label">Level</span>
+          <span class="stat-value" id="level-value">1</span>
+        </div>
+        <div id="timer-display" class="stat-pill hidden">
+          <span class="stat-label">Time</span>
+          <span class="stat-value" id="timer-value">0:00</span>
+        </div>
+        <div id="moves-display" class="stat-pill hidden">
+          <span class="stat-label">Moves</span>
+          <span class="stat-value" id="moves-value">0</span>
+        </div>
+      </div>
+      <div class="header-right">
+        <div class="stat-pill coins-pill">
+          <span class="coin-icon">🪙</span>
+          <span class="stat-value" id="coin-value">0</span>
+        </div>
+        <button id="btn-pause" class="icon-btn hidden" aria-label="Pause">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Screen containers -->
+    <main id="screen-container">
+      <section id="screen-menu" class="screen active"></section>
+      <section id="screen-level-select" class="screen"></section>
+      <section id="screen-gameplay" class="screen"></section>
+      <section id="screen-store" class="screen"></section>
+      <section id="screen-win" class="screen"></section>
+    </main>
+
+    <!-- Pause overlay -->
+    <div id="pause-overlay" class="overlay hidden">
+      <div class="glass-card pause-card">
+        <h2>Game Paused</h2>
+        <button id="btn-resume" class="btn-primary">Resume</button>
+        <button id="btn-restart" class="btn-secondary">Restart Level</button>
+        <button id="btn-quit" class="btn-ghost">Quit to Menu</button>
+      </div>
+    </div>
+
+    <!-- Toast notification -->
+    <div id="toast" class="toast hidden"></div>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

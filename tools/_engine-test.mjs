@@ -1,0 +1,363 @@
+/**
+ * Headless engine assertion suite. Run against the .mjs mirror built by
+ * _build-check.mjs so plain Node can import the browser modules.
+ *   node tools/_build-check.mjs ./js /tmp/mmc
+ *   node tools/_engine-test.mjs /tmp/mmc
+ */
+
+const ROOT = process.argv[2];
+const mod = (p) => import(new URL(`file:///${ROOT.replace(/^\/+/, '')}/${p}`).href);
+
+// --- minimal browser stubs the engine + storage touch ---
+globalThis.window = { innerWidth: 1280, innerHeight: 800 };
+const memStore = new Map();
+globalThis.localStorage = {
+  getItem: (k) => (memStore.has(k) ? memStore.get(k) : null),
+  setItem: (k, v) => memStore.set(k, String(v)),
+  removeItem: (k) => memStore.delete(k),
+};
+
+const { LEVELS, TOTAL_LEVELS, getLevel, hasNextLevel, calculateStars, calculateReward, themeForLevel } =
+  await mod('core/levels.mjs');
+const { THEMES, THEME_IDS, getTheme, randomThemeId } = await mod('data/themes.mjs');
+const { GameManager, GAME_STATE, Card, GameBoard } = await mod('core/game.mjs');
+const { EVENTS } = await mod('core/events.mjs');
+const { STORE_ITEMS } = await mod('data/store-items.mjs');
+const { store } = await mod('core/storage.mjs');
+const { timerColor, TimerRing, formatClock } = await mod('ui/timer-ring.mjs');
+
+let pass = 0;
+const failures = [];
+const ok = (cond, msg) => {
+  if (cond) { pass++; console.log('  ok   ' + msg); }
+  else { failures.push(msg); console.log('  FAIL ' + msg); }
+};
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const group = (name) => console.log('\n== ' + name + ' ==');
+
+/* ---------------------------------------------------------------- */
+group('20 levels, grids exactly as specified');
+ok(TOTAL_LEVELS === 20, `TOTAL_LEVELS is 20 (got ${TOTAL_LEVELS})`);
+
+const SPEC = {
+  1: [2, 2], 2: [2, 2], 3: [2, 2],
+  4: [2, 3], 5: [2, 3], 6: [2, 3],
+  7: [4, 3], 8: [4, 3], 9: [4, 3], 10: [4, 3],
+  11: [4, 4], 12: [4, 4], 13: [4, 4], 14: [4, 4], 15: [4, 4],
+  16: [4, 5], 17: [4, 5], 18: [4, 5],
+  19: [6, 5], 20: [6, 5],
+};
+let gridOk = true, pairOk = true, fieldOk = true;
+for (const [id, [r, c]] of Object.entries(SPEC)) {
+  const l = getLevel(Number(id));
+  if (l.rows !== r || l.cols !== c) { gridOk = false; console.log(`     L${id}: ${l.rows}x${l.cols} expected ${r}x${c}`); }
+  if (l.pairs !== (r * c) / 2) { pairOk = false; console.log(`     L${id}: ${l.pairs} pairs expected ${(r * c) / 2}`); }
+  if (!(l.timeLimit > 0) || typeof l.requiredCoins !== 'number' || !l.theme || !l.difficulty) {
+    fieldOk = false; console.log(`     L${id}: missing a required field`);
+  }
+}
+ok(gridOk, 'every level matches the requested grid size');
+ok(pairOk, 'pairs === rows*cols/2 on every level');
+ok(fieldOk, 'every level carries timeLimit, requiredCoins, theme, difficulty');
+ok(LEVELS.every((l) => (l.rows * l.cols) % 2 === 0), 'every grid holds an even card count');
+ok(LEVELS.every((l) => THEME_IDS.includes(l.theme)), 'every level theme resolves to a real symbol set');
+ok(LEVELS.every((l) => l.requiredCoins >= 0), 'coin gates are non-negative');
+ok(LEVELS.every((l) => ['easy', 'medium', 'hard', 'expert'].includes(l.difficulty)), 'difficulty labels are valid');
+ok(getLevel(999).id === 1 && getLevel(undefined).id === 1, 'getLevel falls back to level 1 on a bad id');
+ok(hasNextLevel(19) && !hasNextLevel(20), 'level 20 is the last level');
+
+group('time limits decrease within each grid tier');
+const tiers = new Map();
+LEVELS.forEach((l) => {
+  const k = `${l.rows}x${l.cols}`;
+  tiers.set(k, [...(tiers.get(k) || []), l]);
+});
+let tierDesc = true;
+for (const [k, ls] of tiers) {
+  for (let i = 1; i < ls.length; i++) {
+    if (ls[i].timeLimit >= ls[i - 1].timeLimit) {
+      tierDesc = false;
+      console.log(`     ${k}: L${ls[i].id} (${ls[i].timeLimit}s) not tighter than L${ls[i - 1].id} (${ls[i - 1].timeLimit}s)`);
+    }
+  }
+}
+ok(tierDesc, 'timeLimit strictly tightens with each level inside a tier');
+ok(LEVELS.every((l) => l.timeLimit / l.pairs >= 5), 'every level allows at least 5s per pair (stays playable)');
+ok(LEVELS.every((l) => l.reward > 0), 'every level pays a base reward');
+
+group('emoji themes');
+ok(THEME_IDS.length >= 10, `${THEME_IDS.length} themes available (spec named 9 + "and more")`);
+for (const want of ['fruits', 'animals', 'space', 'food', 'sports', 'tech', 'flags', 'shapes', 'music']) {
+  ok(THEME_IDS.includes(want), `theme "${want}" exists`);
+}
+let symOk = true, dupOk = true;
+for (const id of THEME_IDS) {
+  const t = THEMES[id];
+  if (t.symbols.length < 15) { symOk = false; console.log(`     ${id}: only ${t.symbols.length} symbols`); }
+  if (new Set(t.symbols).size !== t.symbols.length) { dupOk = false; console.log(`     ${id}: duplicate symbols`); }
+}
+ok(symOk, 'every theme has >= 15 symbols (the 6x5 board needs 15 pairs)');
+ok(dupOk, 'no theme repeats a symbol');
+ok(getTheme('nope').id === 'fruits', 'getTheme falls back on an unknown id');
+
+const easyPicks = new Set(Array.from({ length: 120 }, () => randomThemeId('easy')));
+ok([...easyPicks].every((id) => THEMES[id].spread === 'easy'), 'easy levels only draw gentle themes');
+ok(!easyPicks.has('flags') && !easyPicks.has('shapes'), 'easy levels never draw flags or shapes');
+const autoPicks = new Set(Array.from({ length: 120 }, () => themeForLevel(getLevel(12), 'auto')));
+ok(autoPicks.size > 1, `auto mode varies the theme per round (${autoPicks.size} distinct in 120 rolls)`);
+ok([...autoPicks].every((id) => THEME_IDS.includes(id)), 'every auto roll is a real theme');
+ok(themeForLevel(getLevel(12), 'flags') === 'flags', 'an explicitly equipped theme is respected');
+
+group('deck integrity across all 20 levels');
+let deckOk = true, posOk = true, symbolsOk = true;
+for (const level of LEVELS) {
+  const g = new GameManager();
+  g.init({ levelId: level.id, themeId: 'fruits' });
+  const cards = g.board.cards;
+  if (cards.length !== level.pairs * 2) { deckOk = false; console.log(`     L${level.id}: deck of ${cards.length}`); }
+  const counts = {};
+  cards.forEach((c) => { counts[c.pairId] = (counts[c.pairId] || 0) + 1; });
+  if (Object.values(counts).some((n) => n !== 2)) { deckOk = false; console.log(`     L${level.id}: a pairId is not exactly twice`); }
+  if (new Set(cards.map((c) => c.position)).size !== cards.length) posOk = false;
+  if (new Set(cards.map((c) => c.symbol)).size !== level.pairs) symbolsOk = false;
+  g.destroy();
+}
+ok(deckOk, 'every level builds exact pairs of two');
+ok(posOk, 'board positions are unique on every level');
+ok(symbolsOk, 'distinct symbol count === pair count on every level');
+
+group('Card and GameBoard units');
+const c1 = new Card({ id: 0, pairId: 0, symbol: 'A', position: 0 });
+const c2 = new Card({ id: 1, pairId: 0, symbol: 'A', position: 1 });
+ok(c1.flip() === true && c1.isFlipped, 'flip() turns a face-down card and reports true');
+ok(c1.flip() === false, 'flip() refuses an already-flipped card');
+ok(c1.matches(c2) && !c1.matches(c1), 'matches() pairs by pairId and never with itself');
+c1.setMatched();
+ok(c1.isMatched && c1.isFaceUp && c1.unflip() === false, 'a matched card stays face up');
+c1.reset();
+ok(!c1.isMatched && !c1.isFlipped, 'reset() clears both flags');
+const b = new GameBoard({ rows: 4, cols: 4, symbols: ['a', 'b', 'c'] });
+ok(b.cards.length === 16 && b.pairsTotal === 8, 'GameBoard sizes itself from rows x cols');
+ok(b.cards.every((c) => ['a', 'b', 'c'].includes(c.symbol)), 'a short symbol list cycles rather than crashing');
+
+group('countdown starts on the FIRST FLIP, not on startGame');
+const g = new GameManager();
+let starts = 0;
+g.on(EVENTS.TIMER_START, () => starts++);
+g.init({ levelId: 5, themeId: 'fruits' });
+g.startGame();
+ok(g.state === GAME_STATE.PLAYING, 'startGame opens the board for play');
+ok(g.clockStarted === false, 'the clock is NOT running before the first flip');
+ok(g._timerId === null, 'no interval is armed before the first flip');
+ok(starts === 0, 'no timer:start event before the first flip');
+const budget = g.timeLeft;
+ok(budget === getLevel(5).timeLimit, 'timeLeft is parked at the level budget');
+await wait(1300);
+ok(g.timeLeft === budget, `no time lost while the player reads the grid (${budget} -> ${g.timeLeft})`);
+g.flipCard(g.board.cards[0].id);
+ok(g.clockStarted === true, 'the first flip starts the clock');
+ok(starts === 1, 'timer:start fired exactly once');
+ok(g._timerId !== null, 'the interval is armed after the first flip');
+await wait(1150);
+ok(g.timeLeft === budget - 1, `one second elapsed (${budget} -> ${g.timeLeft})`);
+g.flipCard(g.board.cards[1].id);
+await wait(50);
+ok(starts === 1, 'later flips never restart the clock');
+g.destroy();
+
+group('match: green-glow keep, points, combo');
+const g2 = new GameManager();
+g2.init({ levelId: 7, themeId: 'fruits' });
+g2.startGame();
+const pairsOf = (board) => {
+  const m = new Map();
+  board.cards.forEach((c) => m.set(c.pairId, [...(m.get(c.pairId) || []), c]));
+  return [...m.values()];
+};
+const allPairs = pairsOf(g2.board);
+let matchEvents = 0, comboSeen = [];
+g2.on(EVENTS.PAIR_MATCH, (e) => { matchEvents++; comboSeen.push(e.detail.combo); });
+const [pa, pb] = allPairs[0];
+g2.flipCard(pa.id);
+g2.flipCard(pb.id);
+ok(matchEvents === 1, 'a matching pair emits pair:match');
+ok(pa.isMatched && pb.isMatched, 'both cards stay matched (face up with the glow class)');
+ok(pa.isFaceUp && pb.isFaceUp, 'matched cards never flip back');
+ok(g2.score === 100, `a first match scores 100 (got ${g2.score})`);
+ok(g2.locked === true, 'the board is locked during the match animation');
+const spare = g2.board.cards.find((c) => !c.isMatched);
+ok(g2.flipCard(spare.id) === false, 'clicks are rejected while the board is locked');
+await wait(450);
+ok(g2.locked === false, 'the lock releases after the match delay');
+
+group('combo multiplier climbs on consecutive matches');
+for (const [x, y] of allPairs.slice(1, 4)) {
+  g2.locked = false;
+  g2.flipCard(x.id);
+  g2.flipCard(y.id);
+}
+ok(JSON.stringify(comboSeen) === '[1,2,3,4]', `combo climbs 1,2,3,4 (got ${comboSeen})`);
+ok(g2.score === 100 + 200 + 300 + 400, `score adds 100 x combo each time (got ${g2.score})`);
+ok(g2.bestCombo === 4, 'bestCombo is tracked');
+g2.destroy();
+
+group('mismatch: 1 second hold, then flip back, combo reset');
+const g3 = new GameManager();
+g3.init({ levelId: 7, themeId: 'fruits' });
+g3.startGame();
+const p3 = pairsOf(g3.board);
+// build a genuine mismatch from two different pairs
+const m1 = p3[0][0], m2 = p3[1][0];
+let mismatchEvents = 0, unflips = 0;
+g3.on(EVENTS.PAIR_MISMATCH, () => mismatchEvents++);
+g3.on(EVENTS.CARD_UNFLIP, () => unflips++);
+// earn a combo first so we can watch it reset
+g3.flipCard(p3[2][0].id); g3.flipCard(p3[2][1].id);
+await wait(450);
+ok(g3.combo === 1, 'combo is 1 after one match');
+const t0 = process.hrtime.bigint();
+g3.flipCard(m1.id);
+g3.flipCard(m2.id);
+ok(mismatchEvents === 1, 'a non-matching pair emits pair:mismatch');
+ok(g3.combo === 0, 'combo resets to 0 on a mismatch');
+ok(g3.locked === true, 'the board locks during the red shake');
+ok(g3.flipCard(p3[3][0].id) === false, 'clicks are rejected during the shake');
+await wait(700);
+ok(m1.isFlipped && m2.isFlipped && unflips === 0, 'the pair is still visible at 700ms (inside the 1s hold)');
+await wait(420);
+const heldMs = Number(process.hrtime.bigint() - t0) / 1e6;
+ok(!m1.isFlipped && !m2.isFlipped, 'the pair flips back after the hold');
+ok(unflips === 1, 'card:unflip fired exactly once');
+ok(heldMs >= 1000, `the hold lasted at least 1000ms (measured ${heldMs.toFixed(0)}ms)`);
+ok(g3.locked === false, 'the board unlocks after the flip-back');
+g3.destroy();
+
+group('pause / resume / reset');
+const g4 = new GameManager();
+g4.init({ levelId: 8, themeId: 'fruits' });
+g4.startGame();
+g4.flipCard(g4.board.cards[0].id);
+g4.pauseGame();
+ok(g4.state === GAME_STATE.PAUSED && g4._timerId === null, 'pauseGame stops the clock');
+const held = g4.timeLeft;
+await wait(1200);
+ok(g4.timeLeft === held, 'no time drains while paused');
+g4.resumeGame();
+ok(g4.state === GAME_STATE.PLAYING && g4._timerId !== null, 'resumeGame restarts the already-started clock');
+g4.resetGame();
+ok(g4.moves === 0 && g4.score === 0 && g4.combo === 0, 'resetGame clears the round counters');
+ok(g4.clockStarted === false && g4._timerId === null, 'resetGame parks the clock again for a fresh first flip');
+ok(g4.timeLeft === getLevel(8).timeLimit, 'resetGame restores the full time budget');
+ok(g4.board.cards.every((c) => !c.isFlipped && !c.isMatched), 'resetGame deals a face-down board');
+g4.destroy();
+
+group('Game Over on timeout');
+const g5 = new GameManager();
+g5.init({ levelId: 1, themeId: 'fruits' });
+g5.startGame();
+let over = null;
+g5.on(EVENTS.GAME_OVER, (e) => { over = e.detail; });
+g5.flipCard(g5.board.cards[0].id);
+g5.timeLeft = 1;
+await wait(1200);
+ok(over !== null, 'game:over fires when the clock reaches 0');
+ok(over && over.won === false && over.result === 'lost', 'the payload reports a loss');
+ok(over && over.stars === 0 && over.coins === 0, 'a loss pays no stars and no coins');
+ok(g5.state === GAME_STATE.LOST, 'state is LOST');
+ok(g5._timerId === null, 'the interval is cleared on game over');
+ok(over && over.matched < over.total, 'the payload carries matched/total for the "pairs still hidden" line');
+g5.destroy();
+
+group('win path');
+const g6 = new GameManager();
+g6.init({ levelId: 2, themeId: 'fruits' });
+g6.startGame();
+let win = null;
+g6.on(EVENTS.GAME_OVER, (e) => { win = e.detail; });
+for (const [x, y] of pairsOf(g6.board)) {
+  g6.locked = false;
+  g6.flipCard(x.id);
+  g6.flipCard(y.id);
+}
+await wait(500);
+ok(win && win.won === true, 'clearing every pair wins the round');
+ok(win && win.stars === 3, `a flawless clear earns 3 stars (got ${win && win.stars})`);
+ok(win && win.coins > 0, `coins are awarded (${win && win.coins})`);
+ok(win && win.timeUsed >= 0, 'timeUsed is reported');
+g6.destroy();
+
+group('power-ups');
+const g7 = new GameManager();
+g7.init({ levelId: 9, themeId: 'fruits', powerups: { hint: 1, freeze: 1, shuffle: 1 } });
+g7.startGame();
+let hintShown = 0, hintHidden = 0, shuffled = 0;
+g7.on(EVENTS.HINT_SHOW, () => hintShown++);
+g7.on(EVENTS.HINT_HIDE, () => hintHidden++);
+g7.on(EVENTS.BOARD_SHUFFLE, () => shuffled++);
+ok(g7.usePowerup('hint') === true && hintShown === 1, 'hint reveals the hidden cards');
+ok(g7.usePowerup('shuffle') === true && shuffled === 1, 'shuffle re-orders the board');
+ok(g7.board.cards.length === getLevel(9).pairs * 2, 'shuffle preserves the deck size');
+ok(g7.usePowerup('nonsense') === false, 'an unknown power-up is rejected');
+g7.flipCard(g7.board.cards[0].id);
+g7.usePowerup('freeze');
+const frozenAt = g7.timeLeft;
+await wait(1150);
+ok(g7.isFrozen === true, 'freeze reports frozen while active');
+ok(g7.timeLeft === frozenAt, `the clock holds while frozen (${frozenAt} -> ${g7.timeLeft})`);
+await wait(1900);
+ok(hintHidden === 1, 'hint:hide fires after the hint duration');
+g7.destroy();
+
+group('stars and rewards');
+const L = getLevel(10);
+ok(calculateStars({ pairs: 6, moves: 6, timeLeft: L.timeLimit, timeLimit: L.timeLimit }) === 3, 'flawless run = 3 stars');
+ok(calculateStars({ pairs: 6, moves: 12, timeLeft: L.timeLimit * 0.3, timeLimit: L.timeLimit }) === 2, 'decent run = 2 stars');
+ok(calculateStars({ pairs: 6, moves: 40, timeLeft: 1, timeLimit: L.timeLimit }) === 1, 'scraped through = 1 star');
+const r1 = calculateReward({ level: L, stars: 1, timeLeft: 0, combo: 0 });
+const r3 = calculateReward({ level: L, stars: 3, timeLeft: 0, combo: 0 });
+ok(r3 > r1, `3 stars pays more than 1 (${r3} > ${r1})`);
+ok(calculateReward({ level: L, stars: 3, timeLeft: 40, combo: 5 }) > r3, 'leftover time and combo add a bonus');
+ok(calculateReward({ level: L, stars: 1, timeLeft: 0, combo: 0 }) >= 0, 'rewards never go negative');
+
+group('timer ring: green -> red ramp');
+ok(timerColor(1).tone === 'safe' && timerColor(1).stroke === '#37e2a0', 'a full clock is green');
+ok(timerColor(0.5).tone === 'warn', 'half a clock is amber');
+ok(timerColor(0.25).tone === 'low', 'a quarter clock is orange');
+ok(timerColor(0.05).tone === 'critical' && timerColor(0.05).stroke === '#ff5470', 'nearly out is red');
+ok(timerColor(0).tone === 'critical', 'an empty clock is red');
+const ramp = [1, 0.7, 0.5, 0.3, 0.1, 0].map((f) => timerColor(f).tone);
+ok(JSON.stringify(ramp) === '["safe","safe","warn","low","critical","critical"]', `the ramp is monotone green->red (${ramp})`);
+ok(formatClock(75) === '1:15' && formatClock(0) === '0:00' && formatClock(-4) === '0:00', 'clock formatting clamps at zero');
+const markup = TimerRing.markup();
+ok(markup.includes('timer-ring-arc') && markup.includes('stroke-dasharray'), 'ring markup carries a dash-array arc');
+ok(markup.includes('role="timer"'), 'the ring is announced as a timer');
+ok(new TimerRing().reset(60) instanceof TimerRing, 'reset() is safe before attach (no DOM)');
+
+group('coin gate on level entry');
+store.load();
+store.state.coins = 0;
+store.state.unlockedLevel = 20;
+const gated = LEVELS.find((l) => l.requiredCoins > 0);
+ok(store.canPlay(1).ok === true, 'level 1 is always enterable');
+ok(store.canPlay(gated.id).ok === false && store.canPlay(gated.id).reason === 'coins',
+  `L${gated.id} is blocked at 0 coins (needs ${gated.requiredCoins})`);
+store.state.coins = gated.requiredCoins;
+ok(store.canPlay(gated.id).ok === true, 'holding the required balance opens the level');
+ok(store.state.coins === gated.requiredCoins, 'the gate is a balance check, not a fee');
+store.state.unlockedLevel = 1;
+ok(store.canPlay(5).reason === 'locked', 'an un-reached level reports "locked", not "coins"');
+
+group('store catalogue');
+const themeItems = STORE_ITEMS.filter((i) => i.kind === 'theme');
+ok(themeItems.every((i) => i.id === 'auto' || THEME_IDS.includes(i.id)), 'every theme item maps to a real symbol set');
+ok(themeItems.some((i) => i.id === 'auto' && i.price === 0), 'the random/auto theme is free');
+ok(new Set(STORE_ITEMS.map((i) => i.id)).size === STORE_ITEMS.length, 'no duplicate store ids');
+ok(STORE_ITEMS.every((i) => i.price >= 0 && i.name && i.desc && i.icon), 'store entries are complete');
+ok(THEME_IDS.every((id) => themeItems.some((i) => i.id === id)), 'every theme is purchasable');
+
+console.log(`\n${pass} passed, ${failures.length} failed`);
+if (failures.length) {
+  failures.forEach((f) => console.log('  - ' + f));
+  process.exit(1);
+}
+process.exit(0);
