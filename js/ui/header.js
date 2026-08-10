@@ -19,6 +19,8 @@ const DEFAULT_CONFIG = { show: true, home: false, pause: false, timer: false, mo
 class HeaderController {
   init(router) {
     this.router = router;
+    /** rAF handle for an in-progress coin count-up. */
+    this._roll = null;
 
     this.el          = document.getElementById('main-header');
     this.titleEl     = document.getElementById('header-title');
@@ -73,12 +75,41 @@ class HeaderController {
 
   setCoins(value, delta = 0) {
     if (!this.coinEl) return;
+    // A direct set wins over any count-up still in flight.
+    if (this._roll) { cancelAnimationFrame(this._roll); this._roll = null; }
     this.coinEl.textContent = Number(value).toLocaleString();
     if (delta > 0 && this.coinPill) {
       this.coinPill.classList.remove('bump');
       void this.coinPill.offsetWidth;          // restart the animation
       this.coinPill.classList.add('bump');
     }
+  }
+
+  /**
+   * Climb the counter from `from` to `to` over `duration`, so the number rises
+   * as flying coins land rather than jumping the instant the payout is banked.
+   * The balance itself is already saved by then — this is purely the display.
+   */
+  rollCoins(from, to, duration = 780) {
+    if (!this.coinEl || to <= from || duration <= 0) {
+      this.setCoins(to, to - from);
+      return;
+    }
+    if (this._roll) cancelAnimationFrame(this._roll);
+
+    const start = performance.now();
+    const step = (now) => {
+      const t = Math.min(1, (now - start) / duration);
+      const eased = 1 - (1 - t) ** 3;          // ease-out: the last coins settle
+      this.coinEl.textContent = Math.round(from + (to - from) * eased).toLocaleString();
+      if (t < 1) {
+        this._roll = requestAnimationFrame(step);
+      } else {
+        this._roll = null;
+        this.setCoins(to, to - from);
+      }
+    };
+    this._roll = requestAnimationFrame(step);
   }
 
   setLevel(value) {
