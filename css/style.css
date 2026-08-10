@@ -1183,6 +1183,10 @@ button:disabled, .btn-primary:disabled, .btn-secondary:disabled, .btn-gold:disab
   .result-stats { grid-template-columns: repeat(3, 1fr); gap: 6px; }
   .result-stat { padding: 10px 4px; }
   .result-stat-value { font-size: 1.05rem; }
+  .result-card { gap: 12px; }
+  .star-criteria li { padding: 7px 10px; gap: 8px; }
+  .crit-label { font-size: 0.74rem; }
+  .coin-row { padding: 7px 11px; }
 
   .game-bar { gap: 6px; }
   .powerup-btn { padding: 8px 13px; font-size: 0.72rem; }
