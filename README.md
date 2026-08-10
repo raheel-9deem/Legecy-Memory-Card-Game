@@ -186,13 +186,30 @@ respect `prefers-reduced-motion`.
 `tools/` holds dev-only Node scripts (no dependencies):
 
 ```bash
-node tools/_build-check.mjs ./js /tmp/mmc   # mirror modules as .mjs
-node tools/_engine-test.mjs /tmp/mmc        # 122 headless engine assertions
-node tools/_wiring-check.mjs .              # 74 static wiring/CSS checks
+node tools/_build-check.mjs js .mirror   # mirror modules as .mjs so Node can import them
+node tools/_engine-test.mjs "$PWD/.mirror"   # 184 headless engine assertions
+node tools/_wiring-check.mjs .               # 125 static wiring/CSS checks
 ```
 
+Pass the mirror an **absolute** path — `_engine-test.mjs` builds `file://` URLs from it.
+
 The engine suite covers deck integrity on all 20 levels, the first-flip clock, the 1s
-mismatch hold, combo scoring, power-ups, win/loss payouts and the timer colour ramp. The
-wiring check verifies every import, `EVENTS.*` key and referenced CSS class resolves.
-Layout, glow and animation are verified by code inspection and these tests — there is no
-headless browser here, so no rendered-pixel check.
+mismatch hold, combo scoring and combo-match counting, power-ups, the 3-star boundaries,
+the coin formula (including part-second flooring and loss payouts), unlock progression and
+coin-bank persistence across a reload. The wiring check verifies every import, `EVENTS.*`
+key and referenced CSS class resolves, that `core/` stays DOM-free, and that no entrance
+animation uses a fill-mode that would defeat `:hover`. Layout, glow and animation are
+verified by code inspection and these tests — there is no headless browser here, so no
+rendered-pixel check.
+
+## Credits
+
+Built with vanilla HTML, CSS and JavaScript — no frameworks, no build step, no
+dependencies. Emoji artwork comes from the system font; every sound is synthesised at
+runtime with the WebAudio API, so there are no asset files at all.
+
+Made with ❤️ for the world.
+
+## License
+
+Released under the [MIT License](LICENSE) — free to use, modify and share.
