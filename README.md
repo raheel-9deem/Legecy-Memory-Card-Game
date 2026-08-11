@@ -235,20 +235,21 @@ respect `prefers-reduced-motion`.
 
 ```bash
 node tools/_build-check.mjs js .mirror   # mirror modules as .mjs so Node can import them
-node tools/_engine-test.mjs "$PWD/.mirror"   # 184 headless engine assertions
-node tools/_wiring-check.mjs .               # 125 static wiring/CSS checks
+node tools/_engine-test.mjs "$PWD/.mirror"   # 197 headless engine assertions
+node tools/_wiring-check.mjs .               # 172 static wiring/CSS checks
 ```
 
 Pass the mirror an **absolute** path — `_engine-test.mjs` builds `file://` URLs from it.
 
 The engine suite covers deck integrity on all 20 levels, the first-flip clock, the 1s
 mismatch hold, combo scoring and combo-match counting, power-ups, the 3-star boundaries,
-the coin formula (including part-second flooring and loss payouts), unlock progression and
-coin-bank persistence across a reload. The wiring check verifies every import, `EVENTS.*`
-key and referenced CSS class resolves, that `core/` stays DOM-free, and that no entrance
-animation uses a fill-mode that would defeat `:hover`. Layout, glow and animation are
-verified by code inspection and these tests — there is no headless browser here, so no
-rendered-pixel check.
+the coin formula (including part-second flooring and loss payouts), unlock progression,
+coin-bank persistence across a reload, and that the Coming Soon teasers cannot be purchased
+at any price. The wiring check verifies every import, `EVENTS.*` key and referenced CSS
+class resolves, that `core/` stays DOM-free, that the subscribe form sends nothing
+off-device, and that no entrance animation uses a fill-mode that would defeat `:hover`.
+Layout, glow and animation are verified by code inspection and these tests — there is no
+headless browser here, so no rendered-pixel check.
 
 ## Credits
 
