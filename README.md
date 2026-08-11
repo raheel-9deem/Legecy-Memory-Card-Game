@@ -160,7 +160,48 @@ itself is banked the instant it is earned, so leaving mid-flight can never lose 
 free of DOM.
 
 - **Power-ups** — Reveal (peek at every card), Freeze (stop the clock 10s), Shuffle.
-- **Store** — 5 card backs, 12 themes plus the free random option, restockable power-ups.
+
+## Store
+
+Four tabs: **Card Backs** (5), **Themes** (12 plus the free random option), **Power-ups**
+(restockable consumables) and **Coming Soon**.
+
+`purchase()` never trusts its argument. It resolves the id against the catalogue and
+charges the **catalogue's** price, so a fabricated item or a tampered price buys nothing —
+pinned by tests, since the Coming Soon tab now renders cards that must stay unbuyable.
+
+The **Coming Soon** tab retitles the screen "Store — Coming Soon" and shows an animated
+barber-pole *Under Construction* banner over four greyed, dashed-border teasers — Premium
+Themes, Card Skins, Power-ups+ and Remove Timer — each with a struck-through price, an ETA
+and a `Coming Soon` tag. Clicking one explains why nothing happened rather than failing
+silently. The teasers live in a separate `COMING_SOON` export, deliberately **not** in
+`STORE_ITEMS`, so the purchase path cannot see them at all.
+
+Below them a subscribe teaser takes an email address, validates its shape and records only
+a boolean `notifyUpdates` setting. **The address itself is never stored or transmitted** —
+there is no server in this project, and the tests assert no `fetch`/`sendBeacon` exists on
+that path.
+
+## Sound
+
+`ui/audio.js` synthesises everything through WebAudio — no asset files. The context is
+created lazily on the first user gesture, since browsers block it earlier.
+
+| Cue | Trigger |
+| --- | --- |
+| `flip` | card turns over (tone + a noise transient for the snap) |
+| `match` / `combo(n)` | pair matched; pitch climbs with the combo |
+| `mismatch` | wrong pair |
+| `coin` | payout and purchases |
+| `click` | buttons and tabs |
+| `error` | rejected action |
+| `powerup` | power-up used |
+| `levelComplete()` | level cleared (4-note rising melody) |
+| `gameOver()` | time ran out (3-note falling melody) |
+
+`audio.setMuted()` / `audio.toggleMute()` drive the **Sound effects** switch in Settings and
+persist through the save file, so the preference survives a reload. Unmuting routes through
+the engine on purpose: it has to unlock the audio context from inside the click gesture.
 
 ## Progress
 
