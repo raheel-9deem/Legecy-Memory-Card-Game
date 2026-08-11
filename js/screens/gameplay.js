@@ -14,7 +14,7 @@ import { getCardBack, POWERUP_META } from '../data/store-items.js';
 import { header } from '../ui/header.js';
 import { audio } from '../ui/audio.js';
 import { toast } from '../ui/toast.js';
-import { comboFlash, flyCoins } from '../ui/effects.js';
+import { comboFlash, flyCoins, matchSparks } from '../ui/effects.js';
 import { timerRing, TimerRing } from '../ui/timer-ring.js';
 
 const POWERUP_ORDER = ['hint', 'freeze', 'shuffle'];
@@ -242,14 +242,19 @@ function onCardFlip(e) {
 
 function onPairMatch(e) {
   const { cards, combo, moves } = e.detail;
+  const nodes = [];
   cards.forEach((c) => {
     const node = cardEl(c.id);
     if (!node) return;
+    nodes.push(node);
     node.classList.remove('flipped');
     node.classList.add('matched', 'match-pop');
     node.setAttribute('aria-label', `Matched ${c.symbol}`);
     setTimeout(() => node.classList.remove('match-pop'), 600);
   });
+
+  // Bigger burst as a combo builds, capped so a long run stays readable.
+  matchSparks(nodes, { count: Math.min(24, 12 + combo * 3) });
 
   header.setMoves(moves);
   combo > 1 ? audio.combo(combo) : audio.play('match');

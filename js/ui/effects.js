@@ -1,8 +1,10 @@
 /**
- * effects.js — One-off visual flourishes (confetti, combo text).
+ * effects.js — One-off visual flourishes (confetti, combo text, coin flight,
+ * match sparks).
  */
 
 const CONFETTI_COLORS = ['#8b3dff', '#00e5ff', '#f13ce0', '#ffc93c', '#37e2a0', '#ffffff'];
+const SPARK_COLORS = ['#37e2a0', '#7ff4ff', '#ffc93c', '#ffffff'];
 
 /** Rain confetti from the top of the viewport. */
 export function confetti({ count = 90, duration = 2600 } = {}) {
@@ -125,4 +127,56 @@ export function flyCoins({
   }, total + 60);
 
   return total;
+}
+
+/**
+ * Burst a ring of sparks from the midpoint between two matched cards.
+ *
+ * Each spark is position-fixed at that midpoint and thrown outward along its own
+ * `--sx` / `--sy` vector, so like the coin flight this is one composited
+ * transform per sprite and no layout work at all.
+ *
+ * @param {Element[]} nodes  the matched card elements (1 or more)
+ * @param {{count?:number, radius?:number, duration?:number}} [opts]
+ */
+export function matchSparks(nodes, { count = 14, radius = 78, duration = 620 } = {}) {
+  const cards = (nodes || []).filter((n) => n instanceof Element);
+  if (!cards.length || reducedMotion()) return;
+
+  // Fire from the centre of the pair, so the burst reads as one event.
+  const boxes = cards.map((n) => n.getBoundingClientRect());
+  const cx = boxes.reduce((sum, b) => sum + b.left + b.width / 2, 0) / boxes.length;
+  const cy = boxes.reduce((sum, b) => sum + b.top + b.height / 2, 0) / boxes.length;
+
+  const frag = document.createDocumentFragment();
+  const sparks = [];
+  // Start the ring at a random angle so repeated matches never look identical.
+  const offset = Math.random() * Math.PI * 2;
+
+  for (let i = 0; i < count; i++) {
+    const spark = document.createElement('div');
+    spark.className = 'spark';
+    spark.setAttribute('aria-hidden', 'true');
+
+    // Even spacing with a little jitter: a ring, not a machine-stamped clock face.
+    const angle = offset + (i / count) * Math.PI * 2 + (Math.random() - 0.5) * 0.4;
+    const dist = radius * (0.55 + Math.random() * 0.7);
+    const size = 4 + Math.random() * 5;
+
+    spark.style.left = `${cx}px`;
+    spark.style.top = `${cy}px`;
+    spark.style.width = `${size}px`;
+    spark.style.height = `${size}px`;
+    spark.style.background = SPARK_COLORS[i % SPARK_COLORS.length];
+    spark.style.boxShadow = `0 0 ${6 + size}px currentColor`;
+    spark.style.setProperty('--sx', `${Math.cos(angle) * dist}px`);
+    spark.style.setProperty('--sy', `${Math.sin(angle) * dist}px`);
+    spark.style.animationDuration = `${duration + Math.random() * 160}ms`;
+
+    frag.appendChild(spark);
+    sparks.push(spark);
+  }
+
+  document.body.appendChild(frag);
+  setTimeout(() => sparks.forEach((s) => s.remove()), duration + 320);
 }

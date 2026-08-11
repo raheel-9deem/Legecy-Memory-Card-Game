@@ -116,6 +116,24 @@ class AudioEngine {
   win()  { this._melody(WIN_MELODY, { step: 0.14, dur: 0.3, type: 'triangle', gain: 0.18 }); }
   lose() { this._melody(LOSE_MELODY, { step: 0.2, dur: 0.34, type: 'sawtooth', gain: 0.12 }); }
 
+  /** Named aliases: the two round-end cues read better at the call site. */
+  levelComplete() { this.win(); }
+  gameOver()      { this.lose(); }
+
+  /** Master mute. Persisted through settings, so it survives a reload. */
+  get muted() { return !this.enabled; }
+
+  setMuted(muted) {
+    store.setSetting('sound', !muted);
+    if (!muted) {
+      this.unlock();
+      this.play('click');        // confirm audibly that sound is back
+    }
+    return this.muted;
+  }
+
+  toggleMute() { return this.setMuted(!this.muted); }
+
   /** Rising pitch as a combo builds. */
   combo(level) {
     if (!this.enabled) return;

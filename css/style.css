@@ -1101,6 +1101,19 @@ button:disabled, .btn-primary:disabled, .btn-secondary:disabled, .btn-gold:disab
   animation: coin-fly 780ms var(--ease-out) forwards;
 }
 
+/* One spark from a match burst. Positioned at the pair's midpoint by matchSparks()
+   and thrown outward along its own --sx/--sy vector. */
+.spark {
+  --sx: 0px;
+  --sy: 0px;
+  position: fixed; z-index: 94;
+  pointer-events: none; user-select: none;
+  line-height: 1;
+  border-radius: 50%;
+  will-change: transform, opacity;
+  animation: spark-burst 620ms var(--ease-out) forwards;
+}
+
 /* ---------- 18. Keyframes ---------- */
 @keyframes neon-pulse {
   0%, 100% { filter: brightness(1); }
@@ -1231,6 +1244,27 @@ button:disabled, .btn-primary:disabled, .btn-secondary:disabled, .btn-gold:disab
 @keyframes confetti-fall {
   0%   { transform: translateY(0) rotate(0); opacity: 1; }
   100% { transform: translateY(105vh) rotate(720deg); opacity: 0; }
+}
+/* Barber pole. One full stripe period is 39.6px, so translating by exactly that
+   loops seamlessly — a smaller step would visibly jump. */
+@keyframes stripe-slide {
+  from { background-position: 0 0; }
+  to   { background-position: 39.6px 0; }
+}
+@keyframes cone-tip {
+  0%, 72%, 100% { transform: rotate(0deg); }
+  80%           { transform: rotate(-13deg); }
+  90%           { transform: rotate(9deg); }
+}
+@keyframes soon-float {
+  0%, 100% { transform: translateY(0) rotate(-2deg); }
+  50%      { transform: translateY(-6px) rotate(2deg); }
+}
+/* Match burst: each spark carries its own --sx/--sy vector out from the pair. */
+@keyframes spark-burst {
+  0%   { opacity: 1; transform: translate(-50%, -50%) scale(0.5); }
+  70%  { opacity: 0.9; }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--sx)), calc(-50% + var(--sy))) scale(0.15); }
 }
 
 /* ---------- 19. Responsive ---------- */

@@ -112,8 +112,15 @@ function openSettings() {
 
     const toggle = e.target.closest('input[data-setting]');
     if (toggle) {
-      store.setSetting(toggle.dataset.setting, toggle.checked);
-      audio.play('click');
+      const key = toggle.dataset.setting;
+      // The sound switch goes through the audio engine: unmuting has to unlock
+      // the WebAudio context from inside this gesture, and it plays its own cue.
+      if (key === 'sound') {
+        audio.setMuted(!toggle.checked);
+      } else {
+        store.setSetting(key, toggle.checked);
+        audio.play('click');
+      }
       return;
     }
 
