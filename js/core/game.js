@@ -401,9 +401,11 @@ export class GameManager extends EventBus {
     if (this.state !== GAME_STATE.PLAYING) return false;
 
     if (key === 'hint') {
-      const hidden = this.board.cards.filter((c) => !c.isFaceUp);
-      if (!hidden.length) return false;
-      this.emit(EVENTS.HINT_SHOW, { cards: hidden.map((c) => c.toJSON()) });
+      // Never while a pair is resolving — the unflip timer would fight the hint.
+      if (this.locked) return false;
+      const targets = this._hintTargets();
+      if (!targets.length) return false;
+      this.emit(EVENTS.HINT_SHOW, { cards: targets.map((c) => c.toJSON()) });
       this._defer(() => this.emit(EVENTS.HINT_HIDE, {}), POWERUP_META.hint.duration);
     } else if (key === 'freeze') {
       this._frozenUntil = this.elapsed + POWERUP_META.freeze.duration / 1000;
@@ -419,6 +421,35 @@ export class GameManager extends EventBus {
   }
 
   get isFrozen() { return this.elapsed < this._frozenUntil; }
+
+  /**
+   * Which cards a hint should expose.
+   *
+   * Holding one card, the hint answers the only question worth asking: where
+   * is its partner? With nothing flipped there is no question yet, so it
+   * offers one complete pair instead. It never exposes the whole board —
+   * that would hand over the round rather than help with it.
+   *
+   * @returns {Card[]} 1 card (the partner) or 2 (a fresh pair); [] if neither exists
+   */
+  _hintTargets() {
+    const hidden = this.board.cards.filter((c) => !c.isFaceUp);
+    if (!hidden.length) return [];
+
+    const open = this.board.flippedCards;
+    if (open.length === 1) {
+      const partner = hidden.find((c) => c.matches(open[0]));
+      if (partner) return [partner];
+    }
+
+    // Nothing useful in hand — surface one random unmatched pair.
+    const pairIds = [...new Set(hidden.map((c) => c.pairId))];
+    for (const pairId of GameBoard.shuffle(pairIds)) {
+      const pair = hidden.filter((c) => c.pairId === pairId);
+      if (pair.length === 2) return pair;
+    }
+    return [];
+  }
 
   /** Has the countdown begun (i.e. has any card been flipped)? */
   get clockStarted() { return this._clockStarted; }

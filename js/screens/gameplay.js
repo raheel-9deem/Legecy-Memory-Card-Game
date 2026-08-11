@@ -317,7 +317,10 @@ function onHintHide() {
   if (!boardEl) return;
   boardEl.querySelectorAll('.hint-glow').forEach((node) => {
     node.classList.remove('hint-glow');
-    if (!node.classList.contains('matched')) node.classList.remove('flipped');
+    // Re-hide only what the engine still holds face-down: the player may have
+    // genuinely flipped a hinted card while it was glowing, and that flip wins.
+    const card = gameManager.board?.getCard(node.dataset.id);
+    if (card && !card.isFaceUp) node.classList.remove('flipped');
   });
 }
 
