@@ -334,9 +334,9 @@ function onGameOver(e) {
     balanceBefore = coinBank.total;
     coinBank.award(coins, { levelId, purse: d.purse });
     store.recordMatchStats({ matches: d.total, combo: d.bestCombo });
-    audio.win();
+    audio.levelComplete();
   } else {
-    audio.lose();
+    audio.gameOver();
   }
 
   const goToResults = () => {
