@@ -786,6 +786,98 @@ button:disabled, .btn-primary:disabled, .btn-secondary:disabled, .btn-gold:disab
   background: var(--grad-pink); color: #fff;
 }
 
+/* ---- Coming Soon tab ---- */
+/* Barber-pole banner. The stripes are one repeating-linear-gradient scrolled by
+   background-position, so the whole thing costs a single composited layer. */
+.construction-banner {
+  position: relative;
+  width: 100%; max-width: 980px; margin: 0 auto clamp(16px, 3vh, 28px);
+  padding: 14px 18px;
+  border-radius: var(--radius);
+  border: 1px solid rgba(255, 201, 60, 0.42);
+  background: rgba(255, 201, 60, 0.07);
+  overflow: hidden;
+  box-shadow: 0 0 26px rgba(255, 201, 60, 0.14);
+}
+.construction-stripes {
+  position: absolute; inset: 0;
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(255, 201, 60, 0.16) 0 14px,
+    transparent 14px 28px
+  );
+  background-size: 39.6px 39.6px;         /* 28px / cos(45deg) — one full period */
+  animation: stripe-slide 900ms linear infinite;
+}
+.construction-text {
+  position: relative;
+  display: flex; align-items: center; justify-content: center; gap: 12px;
+  font-weight: 800; font-size: clamp(0.86rem, 2.4vw, 1.06rem);
+  letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--gold);
+  text-shadow: 0 0 18px rgba(255, 201, 60, 0.55);
+}
+.construction-text .cone { animation: cone-tip 2.6s ease-in-out infinite; }
+.construction-text .cone.right { animation-delay: 1.3s; }
+
+.soon-item {
+  /* Greyed and unclickable-looking, but still focusable/tappable so the toast
+     can explain why nothing happened. */
+  cursor: not-allowed;
+  opacity: 0.58;
+  filter: grayscale(0.85);
+  border-style: dashed;
+  transition: opacity var(--t-base) var(--ease), filter var(--t-base) var(--ease),
+              transform var(--t-base) var(--ease), border-color var(--t-base) var(--ease);
+}
+.soon-item:hover {
+  /* Lifts less than real stock, and never gains the purple glow. */
+  transform: translateY(-2px);
+  opacity: 0.82;
+  filter: grayscale(0.45);
+  border-color: rgba(255, 201, 60, 0.4);
+  box-shadow: var(--glass-shadow);
+}
+.soon-tag { background: rgba(255, 201, 60, 0.9); color: #1a1400; }
+.soon-preview { background: rgba(255, 255, 255, 0.04); border-style: dashed; }
+.soon-icon { font-size: 2.4rem; opacity: 0.9; animation: soon-float 3.4s ease-in-out infinite; }
+.soon-price { color: var(--text-dim); text-decoration: line-through; text-decoration-thickness: 1px; }
+.soon-eta {
+  font-size: 0.58rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--gold); opacity: 0.85;
+}
+
+.notify-teaser {
+  display: flex; align-items: flex-start; gap: 14px;
+  width: 100%; max-width: 980px; margin: 4px auto clamp(20px, 4vh, 36px);
+  padding: 18px 20px;
+  border-radius: var(--radius);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  box-shadow: var(--glass-shadow);
+  animation: fade-up 520ms var(--ease-out) 260ms backwards;
+}
+.notify-teaser.subscribed { border-color: rgba(55, 226, 160, 0.38); }
+.notify-icon { font-size: 1.5rem; line-height: 1.2; }
+.notify-copy { flex: 1; min-width: 0; }
+.notify-copy h4 { font-size: 0.96rem; font-weight: 700; margin-bottom: 3px; }
+.notify-copy p { font-size: 0.74rem; color: var(--text-muted); line-height: 1.5; }
+.notify-form { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+.notify-input {
+  flex: 1 1 200px; min-width: 0;
+  padding: 10px 14px;
+  font: inherit; font-size: 0.8rem;
+  color: var(--text);
+  background: var(--glass-bg-strong);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-pill);
+  transition: border-color var(--t-base) var(--ease), box-shadow var(--t-base) var(--ease);
+}
+.notify-input::placeholder { color: var(--text-muted); }
+.notify-input:focus { outline: none; border-color: var(--purple); box-shadow: 0 0 0 3px rgba(139, 61, 255, 0.22); }
+.notify-btn { flex: 0 0 auto; }
+
 /* ---------- 14. Win / result screen ---------- */
 /* Not justify-content:center — the card now carries a criteria list and a coin
    breakdown, and a centred flex child that outgrows its container gets its top
