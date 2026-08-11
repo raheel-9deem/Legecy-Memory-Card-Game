@@ -257,7 +257,7 @@ Built with vanilla HTML, CSS and JavaScript — no frameworks, no build step, no
 dependencies. Emoji artwork comes from the system font; every sound is synthesised at
 runtime with the WebAudio API, so there are no asset files at all.
 
-Made with ❤️ for the world.
+Made with ❤️ for the world
 
 ## License
 
