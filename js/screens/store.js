@@ -1,15 +1,19 @@
 /**
- * store.js — Shop screen: card backs, themes and power-ups.
+ * store.js — Shop screen: card backs, themes, power-ups and a Coming Soon teaser.
  */
 
 import { store } from '../core/storage.js';
-import { STORE_ITEMS, STORE_TABS, getCardBack, getTheme, AUTO_THEME } from '../data/store-items.js';
+import {
+  STORE_ITEMS, STORE_TABS, COMING_SOON, getCardBack, getTheme, AUTO_THEME,
+} from '../data/store-items.js';
 import { bus, EVENTS } from '../core/events.js';
 import { header } from '../ui/header.js';
 import { audio } from '../ui/audio.js';
 import { toast, escapeHtml } from '../ui/toast.js';
 
 const SLOT_FOR_KIND = { cardBack: 'cardBack', theme: 'theme' };
+/** The teaser tab has no stock, so it renders its own body. */
+const SOON_TAB = 'soon';
 
 let activeTab = 'cardBack';
 let unsubs = [];
@@ -26,12 +30,12 @@ export default {
 
     return `
       <div class="screen-head">
-        <h2 class="text-grad">Store</h2>
-        <p>Spend coins on new looks and power-ups</p>
+        <h2 class="text-grad">${activeTab === SOON_TAB ? 'Store — Coming Soon' : 'Store'}</h2>
+        <p id="store-blurb">${storeBlurb()}</p>
       </div>
       <div class="store-tabs">${tabs}</div>
       <div class="scroll-y" style="flex:1;min-height:0">
-        <div class="store-grid" id="store-grid">${renderItems()}</div>
+        <div id="store-body">${renderBody()}</div>
       </div>
     `;
   },
@@ -48,7 +52,18 @@ export default {
         el.querySelectorAll('[data-tab]').forEach((t) =>
           t.classList.toggle('active', t.dataset.tab === activeTab)
         );
+        syncHead();
         refresh();
+        return;
+      }
+
+      // Teaser cards look like stock but are not for sale — say so out loud
+      // rather than letting a click land on nothing.
+      const soonCard = e.target.closest('[data-soon]');
+      if (soonCard) {
+        audio.play('error');
+        const item = COMING_SOON.find((i) => i.id === soonCard.dataset.soon);
+        toast(`${item ? item.name : 'That'} isn’t available yet — ${item?.eta || 'soon'}`, 'info', 2000);
         return;
       }
 
@@ -59,9 +74,18 @@ export default {
       if (equipBtn) return handleEquip(equipBtn.dataset.equip);
     };
 
+    const onSubmit = (e) => {
+      const form = e.target.closest('#notify-form');
+      if (!form) return;
+      e.preventDefault();               // no backend — nothing leaves the device
+      handleSubscribe(form);
+    };
+
     el.addEventListener('click', onClick);
+    el.addEventListener('submit', onSubmit);
     unsubs.push(
       () => el.removeEventListener('click', onClick),
+      () => el.removeEventListener('submit', onSubmit),
       bus.on(EVENTS.COINS_CHANGED, refresh),
       bus.on(EVENTS.POWERUPS_CHANGED, refresh)
     );
@@ -75,6 +99,90 @@ export default {
 };
 
 /* ---------- rendering ---------- */
+
+function storeBlurb() {
+  return activeTab === SOON_TAB
+    ? 'A look at what’s being built next'
+    : 'Spend coins on new looks and power-ups';
+}
+
+/** The head text changes with the tab, so re-render it in place. */
+function syncHead() {
+  const h2 = rootEl?.querySelector('.screen-head h2');
+  const blurb = rootEl?.querySelector('#store-blurb');
+  if (h2) h2.textContent = activeTab === SOON_TAB ? 'Store — Coming Soon' : 'Store';
+  if (blurb) blurb.textContent = storeBlurb();
+}
+
+function renderBody() {
+  return activeTab === SOON_TAB
+    ? renderComingSoon()
+    : `<div class="store-grid" id="store-grid">${renderItems()}</div>`;
+}
+
+function renderComingSoon() {
+  const cards = COMING_SOON.map((item, index) => `
+    <article class="store-item soon-item" data-soon="${item.id}"
+             style="animation-delay:${Math.min(index * 60, 400)}ms"
+             aria-disabled="true">
+      <span class="badge-tag soon-tag">Coming Soon</span>
+      <div class="store-preview soon-preview">
+        <span class="soon-icon">${item.icon}</span>
+      </div>
+      <h3 class="store-name">${escapeHtml(item.name)}</h3>
+      <p class="store-desc">${escapeHtml(item.desc)}</p>
+      <div class="store-foot">
+        <span class="store-price soon-price">🪙 ${item.price}</span>
+        <span class="soon-eta">${escapeHtml(item.eta)}</span>
+      </div>
+    </article>
+  `).join('');
+
+  const subscribed = store.getSetting('notifyUpdates') === true;
+
+  return `
+    <div class="construction-banner" role="status">
+      <div class="construction-stripes" aria-hidden="true"></div>
+      <div class="construction-text">
+        <span class="cone left" aria-hidden="true">🚧</span>
+        <span>Under Construction</span>
+        <span class="cone right" aria-hidden="true">🚧</span>
+      </div>
+    </div>
+
+    <div class="store-grid soon-grid">${cards}</div>
+
+    ${renderNotify(subscribed)}
+  `;
+}
+
+function renderNotify(subscribed) {
+  if (subscribed) {
+    return `
+      <div class="notify-teaser subscribed" id="notify-teaser">
+        <span class="notify-icon">✅</span>
+        <div class="notify-copy">
+          <h4>You’re on the list</h4>
+          <p>We’ll flag new drops right here on this screen.</p>
+        </div>
+      </div>
+    `;
+  }
+  return `
+    <div class="notify-teaser" id="notify-teaser">
+      <span class="notify-icon">✉️</span>
+      <div class="notify-copy">
+        <h4>Notify me when these drop</h4>
+        <p>Saved on this device only — there is no server to send it to.</p>
+        <form id="notify-form" class="notify-form" novalidate>
+          <input id="notify-input" class="notify-input" type="email" inputmode="email"
+                 placeholder="you@example.com" aria-label="Email address" autocomplete="email">
+          <button class="store-btn notify-btn" type="submit">Subscribe</button>
+        </form>
+      </div>
+    </div>
+  `;
+}
 
 function renderItems() {
   return STORE_ITEMS.filter((i) => i.kind === activeTab)
@@ -146,11 +254,32 @@ function footer(item, { owned, equipped, affordable }) {
 }
 
 function refresh() {
-  const grid = rootEl?.querySelector('#store-grid');
-  if (grid) grid.innerHTML = renderItems();
+  const body = rootEl?.querySelector('#store-body');
+  if (body) body.innerHTML = renderBody();
 }
 
 /* ---------- actions ---------- */
+
+/**
+ * There is no backend: the address is validated for shape, the *preference* is
+ * saved, and the address itself is deliberately never stored or transmitted.
+ */
+function handleSubscribe(form) {
+  const input = form.querySelector('#notify-input');
+  const value = (input?.value || '').trim();
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value)) {
+    audio.play('error');
+    toast('That doesn’t look like an email address', 'error');
+    input?.focus();
+    return;
+  }
+
+  store.setSetting('notifyUpdates', true);
+  audio.play('coin');
+  toast('You’re on the list — thanks!', 'success');
+  refresh();
+}
 
 function handleBuy(itemId) {
   const item = STORE_ITEMS.find((i) => i.id === itemId);

@@ -74,6 +74,37 @@ export const STORE_TABS = [
   { key: 'cardBack', label: 'Card Backs' },
   { key: 'theme',    label: 'Themes' },
   { key: 'powerup',  label: 'Power-ups' },
+  { key: 'soon',     label: 'Coming Soon' },
+];
+
+/**
+ * Teasers for the Coming Soon tab.
+ *
+ * Deliberately NOT part of STORE_ITEMS: `purchase()` and `getStoreItem()` only
+ * ever see real stock, so no stray click or crafted id can buy something that
+ * does not exist yet. `price` here is an advertised price, not a live one.
+ */
+export const COMING_SOON = [
+  {
+    id: 'soon-premium-themes', name: 'Premium Themes', icon: '🎨', price: 250,
+    desc: 'Hand-drawn symbol sets — constellations, tarot and monogram tiles.',
+    eta: 'next update',
+  },
+  {
+    id: 'soon-card-skins', name: 'Card Skins', icon: '🃏', price: 180,
+    desc: 'Animated faces: foil holographics, rippling water and slow starfields.',
+    eta: 'next update',
+  },
+  {
+    id: 'soon-powerups', name: 'Power-ups+', icon: '⚡', price: 120,
+    desc: 'Second Chance, Auto-Match and Double Coins join the existing three.',
+    eta: 'in testing',
+  },
+  {
+    id: 'soon-remove-timer', name: 'Remove Timer', icon: '⏳', price: 400,
+    desc: 'A permanent Zen mode — clear any board at your own pace, no countdown.',
+    eta: 'in design',
+  },
 ];
 
 export const POWERUP_META = {
