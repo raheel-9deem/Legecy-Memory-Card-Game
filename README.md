@@ -101,10 +101,17 @@ Grids re-orient to portrait on phones so cards stay large.
 - **Front** is the face-down side: a woven-pattern gradient with a `?` and a small card-back
   badge. **Back** is the emoji. The 3D flip runs **0.6s** on `preserve-3d` with a slight
   settle overshoot.
-- **Match** — both cards stay face up with a breathing green glow and a success chime.
-- **Mismatch** — a red shake, then the pair flips back after **1 second**. The board is
-  locked throughout, so nothing can be clicked mid-animation.
-- **Combos** — consecutive matches multiply the score (100 × combo) and rise in pitch.
+- **Match** — both cards bounce, hold a breathing green glow, and throw a ring of sparks
+  from the midpoint of the pair; the burst grows with the combo (capped at 24 sparks).
+- **Mismatch** — a red shake on both cards plus a shake of the whole board, then the pair
+  flips back after **1 second**. The board is locked throughout, so nothing can be clicked
+  mid-animation.
+- **Combos** — consecutive matches multiply the score (100 × combo), rise in pitch, and pop
+  a `Combo ×N` flash over the board.
+- **Hover** lifts an unflipped card by 6px, scales it 1.04 and sweeps a shine across it.
+
+Every decorative animation — sparks, confetti, coin flight, particles, the barber-pole
+banner — is skipped under `prefers-reduced-motion`.
 
 ## Timer
 
