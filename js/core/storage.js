@@ -188,17 +188,30 @@ class SaveStore {
 
   owns(itemId) { return this.state.owned.includes(itemId); }
 
+  /**
+   * Buy a catalogue item.
+   *
+   * The caller's object is never trusted: the id is resolved against the real
+   * catalogue and the **catalogue's** price is charged. That way a fabricated
+   * item (a Coming Soon teaser, say) cannot be bought, and a tampered `price`
+   * cannot undercut the real one. Accepts an id or an item object.
+   *
+   * @returns {{ok:boolean, reason?:'unknown'|'owned'|'funds'}}
+   */
   purchase(item) {
-    if (item.kind !== 'powerup' && this.owns(item.id)) return { ok: false, reason: 'owned' };
-    if (!this.spendCoins(item.price)) return { ok: false, reason: 'funds' };
+    const entry = getStoreItem(typeof item === 'string' ? item : item?.id);
+    if (!entry) return { ok: false, reason: 'unknown' };
 
-    if (item.kind === 'powerup') {
-      this.addPowerup(item.id, item.amount || 1);
+    if (entry.kind !== 'powerup' && this.owns(entry.id)) return { ok: false, reason: 'owned' };
+    if (!this.spendCoins(entry.price)) return { ok: false, reason: 'funds' };
+
+    if (entry.kind === 'powerup') {
+      this.addPowerup(entry.id, entry.amount || 1);
     } else {
-      this.state.owned.push(item.id);
+      this.state.owned.push(entry.id);
       this.save();
     }
-    bus.emit(EVENTS.ITEM_PURCHASED, { item });
+    bus.emit(EVENTS.ITEM_PURCHASED, { item: entry });
     return { ok: true };
   }
 
