@@ -839,7 +839,8 @@ button:disabled, .btn-primary:disabled, .btn-secondary:disabled, .btn-gold:disab
   box-shadow: var(--glass-shadow);
 }
 .soon-tag { background: rgba(255, 201, 60, 0.9); color: #1a1400; }
-.soon-preview { background: rgba(255, 255, 255, 0.04); border-style: dashed; }
+/* The notify teaser sits directly below, so this grid needs less bottom room. */
+.soon-grid { padding-bottom: 8px; }.soon-preview { background: rgba(255, 255, 255, 0.04); border-style: dashed; }
 .soon-icon { font-size: 2.4rem; opacity: 0.9; animation: soon-float 3.4s ease-in-out infinite; }
 .soon-price { color: var(--text-dim); text-decoration: line-through; text-decoration-thickness: 1px; }
 .soon-eta {

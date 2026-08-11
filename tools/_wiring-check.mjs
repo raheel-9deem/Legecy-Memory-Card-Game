@@ -135,12 +135,18 @@ for (const c of [
   'star-criteria', 'crit-mark', 'crit-text', 'crit-label', 'crit-detail',
   'coin-breakdown', 'coin-row', 'coin-row-label', 'coin-row-value',
   'result-meta', 'result-unlock', 'result-record',
+  // store Coming Soon tab + match sparks
+  'construction-banner', 'construction-stripes', 'construction-text', 'cone',
+  'soon-grid', 'soon-item', 'soon-tag', 'soon-preview', 'soon-icon', 'soon-price', 'soon-eta',
+  'notify-teaser', 'notify-icon', 'notify-copy', 'notify-form', 'notify-input', 'notify-btn',
+  'subscribed', 'spark',
 ]) {
   ok(cssClasses.has(c), `.${c} has a rule in style.css`);
 }
 for (const kf of [
   'mismatch-shake', 'matched-glow', 'timer-alarm',
   'coin-fly', 'coin-catch', 'star-burst', 'star-glow', 'star-dim',
+  'stripe-slide', 'cone-tip', 'soon-float', 'spark-burst',
 ]) {
   ok(new RegExp(`@keyframes\\s+${kf}\\b`).test(css), `@keyframes ${kf} exists`);
 }
@@ -189,6 +195,46 @@ ok(/--i:/.test(winSrc) && /var\(--i/.test(css), 'the star reveal is staggered by
 const levelCardBlock = css.replace(/\/\*[\s\S]*?\*\//g, '').match(/\.level-card\s*\{[^}]*\}/s)?.[0] || '';
 ok(!/aspect-ratio/.test(levelCardBlock) && /min-height/.test(levelCardBlock),
   '.level-card is no longer a fixed square (it carries four meta rows)');
+
+group('coming-soon teasers are inert');
+const itemsSrc = read(join(ROOT, 'js/data/store-items.js'));
+const storeScreenSrc = read(join(ROOT, 'js/screens/store.js'));
+const soonIds = [...itemsSrc.matchAll(/id:\s*'(soon-[a-z-]+)'/g)].map((m) => m[1]);
+ok(soonIds.length === 4, `four Coming Soon teasers are declared (${soonIds.length})`);
+// The teasers must live outside STORE_ITEMS, or purchase()/getStoreItem() could
+// reach them and sell something that does not exist.
+const storeItemsBlock = itemsSrc.match(/export const STORE_ITEMS = \[[\s\S]*?\n\];/)?.[0] || '';
+ok(storeItemsBlock.length > 0, 'STORE_ITEMS is still a single array literal');
+for (const id of soonIds) {
+  ok(!storeItemsBlock.includes(id), `${id} is not in STORE_ITEMS (cannot be purchased)`);
+}
+ok(/export const COMING_SOON/.test(itemsSrc), 'COMING_SOON is its own export');
+ok(/key:\s*'soon'/.test(itemsSrc), 'the store has a Coming Soon tab');
+ok(/data-soon=/.test(storeScreenSrc) && !/data-buy="\$\{item\.id\}"[\s\S]{0,80}soon/.test(storeScreenSrc),
+  'teaser cards carry data-soon, never data-buy');
+ok(/Store — Coming Soon/.test(storeScreenSrc), 'the tab retitles the screen "Store — Coming Soon"');
+ok(/notifyUpdates/.test(storageSrc) && /notifyUpdates/.test(storeScreenSrc),
+  'the subscribe preference is a persisted setting');
+// No backend exists, so the address must never be stored or sent anywhere.
+ok(!/fetch\(|XMLHttpRequest|sendBeacon/.test(storeScreenSrc), 'the subscribe form sends nothing off-device');
+ok(!/setSetting\('notifyEmail|notifyEmail/.test(storeScreenSrc), 'the email address itself is never saved');
+ok(/preventDefault/.test(storeScreenSrc), 'the form never navigates');
+
+group('match feedback');
+ok(/export function matchSparks/.test(effectsSrc), 'effects.js exposes matchSparks');
+ok(/matchSparks\(/.test(gpSrc), 'gameplay bursts sparks on a match');
+for (const prop of ['--sx', '--sy']) {
+  ok(effectsSrc.includes(prop) && css.includes(prop), `${prop} is set by matchSparks and read by the keyframes`);
+}
+ok(/reducedMotion\(\)/.test(effectsSrc.split('matchSparks')[1] || ''), 'the burst is skipped under prefers-reduced-motion');
+ok(/levelComplete\(\)/.test(hdrSrc) === false && /levelComplete/.test(read(join(ROOT, 'js/ui/audio.js'))),
+  'audio exposes a named levelComplete cue');
+ok(/gameOver\(\)\s*\{/.test(read(join(ROOT, 'js/ui/audio.js'))), 'audio exposes a named gameOver cue');
+ok(/audio\.levelComplete\(\)/.test(gpSrc) && /audio\.gameOver\(\)/.test(gpSrc),
+  'gameplay uses the named round-end cues');
+ok(/setMuted|toggleMute/.test(read(join(ROOT, 'js/ui/audio.js'))), 'audio owns a mute toggle');
+ok(/audio\.setMuted/.test(read(join(ROOT, 'js/screens/menu.js'))),
+  'the settings switch routes through the audio engine (so unmute can unlock the context)');
 
 group('card flip contract');
 ok(/--t-flip:\s*600ms/.test(css), 'the flip animation is 600ms (0.6s)');
