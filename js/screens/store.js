@@ -144,7 +144,7 @@ function renderComingSoon() {
     <div class="construction-banner" role="status">
       <div class="construction-stripes" aria-hidden="true"></div>
       <div class="construction-text">
-        <span class="cone left" aria-hidden="true">🚧</span>
+        <span class="cone" aria-hidden="true">🚧</span>
         <span>Under Construction</span>
         <span class="cone right" aria-hidden="true">🚧</span>
       </div>
