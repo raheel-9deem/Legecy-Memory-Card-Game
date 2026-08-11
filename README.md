@@ -40,7 +40,7 @@ js/
     menu.js             Neon title, Play / Store / Settings, settings modal
     level-select.js     Scrollable 20-level grid: locks, coin gates, best time, stars
     gameplay.js         Board rendering, driven entirely by engine events
-    store.js            Tabbed shop: card backs, themes, power-ups
+    store.js            Tabbed shop: card backs, themes, power-ups, Coming Soon
     win.js              Result screen: star reveal, coin breakdown, next level
   ui/
     header.js           Coins / level / timer / moves + nav buttons
@@ -48,7 +48,7 @@ js/
     particles.js        Canvas floating-particle background
     audio.js            Synthesised WebAudio sound effects (no asset files)
     toast.js            Transient messages
-    effects.js          Confetti, combo flashes and the coin flight
+    effects.js          Confetti, combo flashes, coin flight, match sparks
 tools/                  Dev-only verification scripts (not shipped)
 ```
 

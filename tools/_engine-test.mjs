@@ -499,6 +499,15 @@ ok(soonBuy.ok === false || !store.owns('soon-remove-timer'),
   'a hand-rolled teaser purchase does not grant ownership');
 ok(store.state.coins === 100000 || soonBuy.ok === false, 'and does not spend coins');
 ok(STORE_TABS.some((t) => t.key === 'soon'), 'the store declares a Coming Soon tab');
+// The other half of resolving against the catalogue: a lied-about price is ignored.
+const realItem = STORE_ITEMS.find((i) => i.kind === 'cardBack' && i.price > 0);
+store.state.owned = store.state.owned.filter((id) => id !== realItem.id);
+store.state.coins = 100000;
+store.purchase({ id: realItem.id, kind: realItem.kind, price: 1 });
+ok(store.state.coins === 100000 - realItem.price,
+  `a tampered price is ignored (charged ${realItem.price}, not 1)`);
+ok(store.owns(realItem.id), 'the genuine item is still granted');
+ok(store.purchase(realItem.id).reason === 'owned', 'purchase accepts a bare id too');
 ok(store.getSetting('notifyUpdates') === false, 'the notify preference starts off');
 store.setSetting('notifyUpdates', true);
 store.load();
