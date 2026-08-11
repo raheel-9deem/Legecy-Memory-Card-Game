@@ -482,6 +482,28 @@ ok(new Set(STORE_ITEMS.map((i) => i.id)).size === STORE_ITEMS.length, 'no duplic
 ok(STORE_ITEMS.every((i) => i.price >= 0 && i.name && i.desc && i.icon), 'store entries are complete');
 ok(THEME_IDS.every((id) => themeItems.some((i) => i.id === id)), 'every theme is purchasable');
 
+group('coming-soon teasers');
+ok(COMING_SOON.length === 4, `four teasers are declared (${COMING_SOON.length})`);
+ok(COMING_SOON.every((i) => i.name && i.desc && i.icon && i.eta && i.price > 0),
+  'every teaser has a name, blurb, icon, price and ETA');
+ok(new Set(COMING_SOON.map((i) => i.id)).size === 4, 'no duplicate teaser ids');
+// The whole point of keeping them out of STORE_ITEMS: the purchase path cannot
+// see them, so no crafted id or stray click can buy vapour.
+ok(COMING_SOON.every((i) => !STORE_ITEMS.some((s) => s.id === i.id)),
+  'no teaser appears in the real catalogue');
+ok(COMING_SOON.every((i) => getStoreItem(i.id) === null),
+  'getStoreItem refuses to resolve a teaser id');
+store.state.coins = 100000;
+const soonBuy = store.purchase({ id: 'soon-remove-timer', kind: 'upgrade', price: 400 });
+ok(soonBuy.ok === false || !store.owns('soon-remove-timer'),
+  'a hand-rolled teaser purchase does not grant ownership');
+ok(store.state.coins === 100000 || soonBuy.ok === false, 'and does not spend coins');
+ok(STORE_TABS.some((t) => t.key === 'soon'), 'the store declares a Coming Soon tab');
+ok(store.getSetting('notifyUpdates') === false, 'the notify preference starts off');
+store.setSetting('notifyUpdates', true);
+store.load();
+ok(store.getSetting('notifyUpdates') === true, 'and survives a reload');
+
 console.log(`\n${pass} passed, ${failures.length} failed`);
 if (failures.length) {
   failures.forEach((f) => console.log('  - ' + f));
