@@ -175,7 +175,8 @@ free of DOM.
 ## Store
 
 Four tabs: **Card Backs** (5), **Themes** (12 plus the free random option), **Power-ups**
-(restockable consumables) and **Coming Soon**.
+(restockable consumables — the card shows both the purchase price and the **per-use coin
+fee** stacked beneath it) and **Coming Soon**.
 
 `purchase()` never trusts its argument. It resolves the id against the catalogue and
 charges the **catalogue's** price, so a fabricated item or a tampered price buys nothing —
