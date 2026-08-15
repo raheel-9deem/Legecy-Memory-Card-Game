@@ -1,9 +1,13 @@
 /**
- * level-select.js — Scrollable grid of all 20 levels.
+ * level-select.js — Scrollable grid of all 70 levels, grouped by difficulty.
  *
  * Every card carries the level number, the coin balance it gates on, the
  * player's best clear time and the stars earned. Level 1 is open from a fresh
  * save; the rest unlock as the previous one is cleared (see storage.recordWin).
+ *
+ * The tiles are banded rather than poured into one 70-cell grid: at that length
+ * an unbroken run of numbers gives the player nothing to navigate by, and the
+ * jump in board size between bands is the most useful landmark there is.
  */
 
 import { store } from '../core/storage.js';
@@ -12,6 +16,15 @@ import { getTheme } from '../data/themes.js';
 import { header, formatTime } from '../ui/header.js';
 import { audio } from '../ui/audio.js';
 import { toast } from '../ui/toast.js';
+
+/** Human label per difficulty band. Keys match level.difficulty exactly. */
+const BAND_META = {
+  easy:   { label: 'Warm-up',   blurb: 'Small boards, generous clocks' },
+  medium: { label: 'Steady',    blurb: 'More pairs, less slack' },
+  hard:   { label: 'Sharp',     blurb: 'The clock starts to bite' },
+  expert: { label: 'Expert',    blurb: 'Big boards and lookalike symbol sets' },
+  master: { label: 'Master',    blurb: '40+ cards — the deep end' },
+};
 
 let cleanup = [];
 
