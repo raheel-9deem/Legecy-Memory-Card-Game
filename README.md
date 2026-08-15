@@ -246,22 +246,36 @@ respect `prefers-reduced-motion`.
 `tools/` holds dev-only Node scripts (no dependencies):
 
 ```bash
-node tools/_build-check.mjs js .mirror   # mirror modules as .mjs so Node can import them
-node tools/_engine-test.mjs "$PWD/.mirror"   # 197 headless engine assertions
-node tools/_wiring-check.mjs .               # 172 static wiring/CSS checks
+# Windows-safe mirror (the project path has a space in it on this machine):
+node tools/_build-win.mjs
+# Generic mirror — pass an absolute mirror path on any platform:
+node tools/_build-check.mjs js .mirror
+
+node tools/_engine-test.mjs "$PWD/.mirror"        # 197 headless engine assertions
+node tools/_hint-test.mjs "$PWD/.mirror"          #  15 hint reveals-exactly-the-right-cards assertions
+node tools/_powerup-coin-test.mjs                #  37 per-use coin-fee assertions
+node tools/_wiring-check.mjs .                    # 172 static wiring/CSS checks
 ```
 
-Pass the mirror an **absolute** path — `_engine-test.mjs` builds `file://` URLs from it.
+The Windows mirror builder (`_build-win.mjs`) writes the `.mjs` copy into `./scratch-mmc`
+and takes no arguments; the generic `_build-check.mjs` takes source and destination. Either
+way, pass the mirror an **absolute** path to the test runners — they build `file://` URLs
+from it, and a bare relative path resolves to a non-absolute URL on Windows.
 
 The engine suite covers deck integrity on all 20 levels, the first-flip clock, the 1s
 mismatch hold, combo scoring and combo-match counting, power-ups, the 3-star boundaries,
 the coin formula (including part-second flooring and loss payouts), unlock progression,
 coin-bank persistence across a reload, and that the Coming Soon teasers cannot be purchased
-at any price. The wiring check verifies every import, `EVENTS.*` key and referenced CSS
-class resolves, that `core/` stays DOM-free, that the subscribe form sends nothing
-off-device, and that no entrance animation uses a fill-mode that would defeat `:hover`.
-Layout, glow and animation are verified by code inspection and these tests — there is no
-headless browser here, so no rendered-pixel check.
+at any price. The **hint suite** pins the fix for the old "revealing a pair reveals the whole
+board" bug — `_hintTargets()` returns only the partner (1) or a single pair (2), never the
+whole board, and the count is checked on untouched, one-card-held and last-pair boards. The
+**power-up coin suite** locks the per-use fee: a fire requires both a stocked unit and the
+`useCost` coins, spends exactly one of each on success, and on any refusal (no funds, no
+stock, or the engine refusing a locked board) burns neither. The wiring check verifies every
+import, `EVENTS.*` key and referenced CSS class resolves, that `core/` stays DOM-free, that
+the subscribe form sends nothing off-device, and that no entrance animation uses a fill-mode
+that would defeat `:hover`. Layout, glow and animation are verified by code inspection and
+these tests — there is no headless browser here, so no rendered-pixel check.
 
 ## Credits
 
