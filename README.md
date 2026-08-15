@@ -159,7 +159,18 @@ itself is banked the instant it is earned, so leaving mid-flight can never lose 
 `core/coins.js` computes and banks; `ui/effects.js` owns the animation, keeping `core/`
 free of DOM.
 
-- **Power-ups** — Reveal (peek at every card), Freeze (stop the clock 10s), Shuffle.
+- **Power-ups** — Reveal (peek at the hidden cards), Freeze (stop the clock 10s),
+  Shuffle (rearrange the unmatched cards). Each power-up is stocked in the store as a
+  consumable bundle, and **every use also charges a coin fee from your live balance** on
+  top of the stocked unit — a use requires *both* a unit in hand *and* the coins to pay:
+  Reveal 🪙20, Freeze 🪙40, Shuffle 🪙30 (see the table below). A refusal (locked board,
+  nothing left to reveal, short of coins or stock) burns neither the unit nor any coins.
+
+  | Power-up | Stock bundle | Per-use fee | Effect                                   |
+  | -------- | ------------ | ----------- | ---------------------------------------- |
+  | Reveal   | 👁️ ×3 (🪙120) | 🪙 20       | Peek at the hidden cards for 1.5s       |
+  | Freeze   | 🧊 ×2 (🪙150) | 🪙 40       | Stop the clock for 10s                   |
+  | Shuffle  | 🔀 ×2 (🪙100) | 🪙 30       | Rearrange the still-unmatched cards      |
 
 ## Store
 
