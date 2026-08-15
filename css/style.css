@@ -482,6 +482,22 @@ button:disabled, .btn-primary:disabled, .btn-secondary:disabled, .btn-gold:disab
   width: 100%;
 }
 
+/* Set by layoutBoard() when the 24-pair grid hits its minimum card size and
+   still will not fit — scrolling the board beats spilling it under the game bar
+   or shrinking the cards past the point of being readable. */
+.board-wrap.cramped {
+  overflow: auto;
+  overscroll-behavior: contain;
+  place-items: start center;
+  padding-bottom: 2px;
+}
+.board-wrap.cramped::-webkit-scrollbar { width: 8px; height: 8px; }
+.board-wrap.cramped::-webkit-scrollbar-track { background: transparent; }
+.board-wrap.cramped::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: var(--radius-pill);
+}
+
 /* ---------- Circular countdown (corner of the board) ---------- */
 .timer-ring {
   position: absolute; top: 0; right: 0;
