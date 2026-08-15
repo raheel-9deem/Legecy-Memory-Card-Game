@@ -1,5 +1,5 @@
 /**
- * levels.js — 20 level definitions plus progression maths.
+ * levels.js — 70 level definitions plus progression maths.
  *
  * Grid tiers (rows × cols):
  *    1–3   2×2  →  2 pairs
@@ -8,16 +8,39 @@
  *   11–15  4×4  →  8 pairs
  *   16–18  4×5  → 10 pairs
  *   19–20  6×5  → 15 pairs
+ *   21–32  4×8  → 16 pairs
+ *   33–44  6×6  → 18 pairs
+ *   45–56  5×8  → 20 pairs
+ *   57–70  6×8  → 24 pairs
+ *
+ * The ladder past level 20 keeps climbing rather than revisiting a smaller
+ * board: every new tier holds more pairs than the 15 of levels 19–20.
  *
  * `time` tightens with every level inside a tier, then resets upward when
- * the grid grows — a 15-pair board cannot be cleared in a 2-pair board's
- * clock, so the squeeze is per tier rather than strictly monotonic.
+ * the grid grows — a 24-pair board cannot be cleared in a 2-pair board's
+ * clock, so the squeeze is per tier rather than strictly monotonic. Every
+ * level still allows at least 5 seconds per pair.
  *
  * `requiredCoins` is a balance gate, not a purchase: you need that many
  * coins in your pocket to enter, and they are not spent.
  */
 
-import { randomThemeId } from '../data/themes.js';
+import { randomThemeId, THEME_IDS } from '../data/themes.js';
+
+/** A tier's descending clock: `count` budgets from `from`, −`step` each level. */
+function ramp(from, count, step = 6) {
+  return Array.from({ length: count }, (_, i) => from - i * step);
+}
+
+/**
+ * Balance gates for the levels added past the original 20: a gentle climb of
+ * 60 coins per level, 1100 at level 21 up to 4040 at level 70. A single clear
+ * on these large boards pays several times the 60-coin step, so the curve
+ * never turns into a grind.
+ */
+function gates(startId, count) {
+  return Array.from({ length: count }, (_, i) => 1100 + 60 * (startId - 21 + i));
+}
 
 const TIERS = [
   //          rows cols  per-level time budget            coin gate
@@ -27,16 +50,28 @@ const TIERS = [
   { levels: [11, 15], rows: 4, cols: 4, times: [104, 96, 89, 82, 74],    coins: [200, 250, 300, 350, 400] },
   { levels: [16, 18], rows: 4, cols: 5, times: [124, 112, 100],          coins: [500, 600, 700] },
   { levels: [19, 20], rows: 6, cols: 5, times: [175, 158],               coins: [850, 1000] },
+
+  // The 50 levels added past the original 20. Each tier holds more pairs than
+  // the 15 of levels 19–20, so the ladder only ever climbs.
+  { levels: [21, 32], rows: 4, cols: 8, times: ramp(150, 12),            coins: gates(21, 12) },
+  { levels: [33, 44], rows: 6, cols: 6, times: ramp(168, 12),            coins: gates(33, 12) },
+  { levels: [45, 56], rows: 5, cols: 8, times: ramp(190, 12),            coins: gates(45, 12) },
+  { levels: [57, 70], rows: 6, cols: 8, times: ramp(230, 14),            coins: gates(57, 14) },
 ];
 
 function difficultyFor(id) {
   if (id <= 6)  return 'easy';
   if (id <= 12) return 'medium';
   if (id <= 18) return 'hard';
-  return 'expert';
+  if (id <= 44) return 'expert';
+  return 'master';
 }
 
-/** Default (preferred) theme per level — the random picker overrides it in Auto mode. */
+/**
+ * Default (preferred) theme for the first 20 levels — the random picker
+ * overrides it in Auto mode. Levels past 20 cycle THEME_IDS instead of
+ * spelling out another 50 strings.
+ */
 const THEME_ROTATION = [
   'fruits', 'animals', 'space', 'food', 'sports', 'tech', 'transport', 'nature',
   'weather', 'music', 'fruits', 'animals', 'shapes', 'space', 'food',
@@ -56,7 +91,7 @@ export const LEVELS = TIERS.flatMap((tier) => {
       pairs,
       timeLimit: tier.times[i],
       requiredCoins: tier.coins[i],
-      theme: THEME_ROTATION[id - 1] || 'fruits',
+      theme: THEME_ROTATION[id - 1] || THEME_IDS[(id - 1) % THEME_IDS.length],
       difficulty: difficultyFor(id),
       label: `${tier.rows} × ${tier.cols}`,
     });

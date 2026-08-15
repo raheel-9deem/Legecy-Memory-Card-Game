@@ -39,8 +39,12 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const group = (name) => console.log('\n== ' + name + ' ==');
 
 /* ---------------------------------------------------------------- */
-group('20 levels, grids exactly as specified');
-ok(TOTAL_LEVELS === 20, `TOTAL_LEVELS is 20 (got ${TOTAL_LEVELS})`);
+group('70 levels, grids exactly as specified');
+ok(TOTAL_LEVELS === 70, `TOTAL_LEVELS is 70 (got ${TOTAL_LEVELS})`);
+
+/** Fill a contiguous id range with one grid, so the map stays readable. */
+const span = (from, to, rows, cols) =>
+  Object.fromEntries(Array.from({ length: to - from + 1 }, (_, i) => [from + i, [rows, cols]]));
 
 const SPEC = {
   1: [2, 2], 2: [2, 2], 3: [2, 2],
@@ -49,8 +53,13 @@ const SPEC = {
   11: [4, 4], 12: [4, 4], 13: [4, 4], 14: [4, 4], 15: [4, 4],
   16: [4, 5], 17: [4, 5], 18: [4, 5],
   19: [6, 5], 20: [6, 5],
+  ...span(21, 32, 4, 8),
+  ...span(33, 44, 6, 6),
+  ...span(45, 56, 5, 8),
+  ...span(57, 70, 6, 8),
 };
 let gridOk = true, pairOk = true, fieldOk = true;
+const SPEC_COUNT = Object.keys(SPEC).length;
 for (const [id, [r, c]] of Object.entries(SPEC)) {
   const l = getLevel(Number(id));
   if (l.rows !== r || l.cols !== c) { gridOk = false; console.log(`     L${id}: ${l.rows}x${l.cols} expected ${r}x${c}`); }
@@ -59,15 +68,19 @@ for (const [id, [r, c]] of Object.entries(SPEC)) {
     fieldOk = false; console.log(`     L${id}: missing a required field`);
   }
 }
+ok(SPEC_COUNT === 70, `the spec map covers all 70 levels (got ${SPEC_COUNT})`);
 ok(gridOk, 'every level matches the requested grid size');
 ok(pairOk, 'pairs === rows*cols/2 on every level');
 ok(fieldOk, 'every level carries timeLimit, requiredCoins, theme, difficulty');
 ok(LEVELS.every((l) => (l.rows * l.cols) % 2 === 0), 'every grid holds an even card count');
 ok(LEVELS.every((l) => THEME_IDS.includes(l.theme)), 'every level theme resolves to a real symbol set');
 ok(LEVELS.every((l) => l.requiredCoins >= 0), 'coin gates are non-negative');
-ok(LEVELS.every((l) => ['easy', 'medium', 'hard', 'expert'].includes(l.difficulty)), 'difficulty labels are valid');
+ok(LEVELS.every((l) => ['easy', 'medium', 'hard', 'expert', 'master'].includes(l.difficulty)), 'difficulty labels are valid');
 ok(getLevel(999).id === 1 && getLevel(undefined).id === 1, 'getLevel falls back to level 1 on a bad id');
-ok(hasNextLevel(19) && !hasNextLevel(20), 'level 20 is the last level');
+ok(hasNextLevel(69) && !hasNextLevel(70), 'level 70 is the last level');
+ok(getLevel(44).difficulty === 'expert' && getLevel(45).difficulty === 'master', 'the master band opens at level 45');
+ok(getLevel(19).difficulty === 'expert' && getLevel(18).difficulty === 'hard', 'the original 20 levels keep their difficulty bands');
+ok(getLevel(70).pairs === 24, 'the last level is the 24-pair ceiling');
 
 group('time limits decrease within each grid tier');
 const tiers = new Map();
@@ -97,10 +110,10 @@ for (const want of ['fruits', 'animals', 'space', 'food', 'sports', 'tech', 'fla
 let symOk = true, dupOk = true;
 for (const id of THEME_IDS) {
   const t = THEMES[id];
-  if (t.symbols.length < 15) { symOk = false; console.log(`     ${id}: only ${t.symbols.length} symbols`); }
+  if (t.symbols.length < 24) { symOk = false; console.log(`     ${id}: only ${t.symbols.length} symbols`); }
   if (new Set(t.symbols).size !== t.symbols.length) { dupOk = false; console.log(`     ${id}: duplicate symbols`); }
 }
-ok(symOk, 'every theme has >= 15 symbols (the 6x5 board needs 15 pairs)');
+ok(symOk, 'every theme has >= 24 symbols (the 6x8 board needs 24 pairs)');
 ok(dupOk, 'no theme repeats a symbol');
 ok(getTheme('nope').id === 'fruits', 'getTheme falls back on an unknown id');
 
@@ -112,7 +125,7 @@ ok(autoPicks.size > 1, `auto mode varies the theme per round (${autoPicks.size} 
 ok([...autoPicks].every((id) => THEME_IDS.includes(id)), 'every auto roll is a real theme');
 ok(themeForLevel(getLevel(12), 'flags') === 'flags', 'an explicitly equipped theme is respected');
 
-group('deck integrity across all 20 levels');
+group('deck integrity across all 70 levels');
 let deckOk = true, posOk = true, symbolsOk = true;
 for (const level of LEVELS) {
   const g = new GameManager();
