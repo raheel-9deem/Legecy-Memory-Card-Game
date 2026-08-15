@@ -8,8 +8,10 @@
 
 import { getLevel, hasNextLevel, TOTAL_LEVELS } from '../core/levels.js';
 import { coinBreakdown } from '../core/coins.js';
+import { store } from '../core/storage.js';
 import { header, formatTime } from '../ui/header.js';
 import { audio } from '../ui/audio.js';
+import { toast } from '../ui/toast.js';
 import { confetti } from '../ui/effects.js';
 
 /** Delay between star reveals — must match --i arithmetic in style.css. */
@@ -84,6 +86,11 @@ export default {
 
     const nextUnlocked = won && hasNextLevel(levelId);
     const allDone = won && !hasNextLevel(levelId);
+    // Show the gate on the button rather than only refusing the click: the
+    // 24-pair levels ask for a four-figure balance, and a dead-looking button
+    // with no number is worse than one that says what it wants.
+    const nextId = Math.min(levelId + 1, TOTAL_LEVELS);
+    const nextGate = nextUnlocked ? store.canPlay(nextId) : { ok: true, requiredCoins: 0 };
 
     return `
       <div class="glass-card result-card">
@@ -123,7 +130,11 @@ export default {
 
         <div class="result-actions">
           ${nextUnlocked
-            ? `<button class="btn-primary" data-action="next">Play Next Level →</button>`
+            ? `<button class="btn-primary ${nextGate.ok ? '' : 'gated'}" data-action="next">
+                 ${nextGate.ok
+                   ? 'Play Next Level →'
+                   : `Level ${nextId} needs 🪙 ${nextGate.requiredCoins}`}
+               </button>`
             : ''}
           <button class="${nextUnlocked ? 'btn-secondary' : 'btn-primary'}" data-action="replay">
             ${won ? 'Play Again' : 'Retry Level'}
@@ -161,7 +172,25 @@ export default {
       audio.play('click');
 
       switch (action) {
-        case 'next':   router.navigate('game', { levelId: Math.min(levelId + 1, TOTAL_LEVELS) }); break;
+        case 'next': {
+          // Level select refuses a level whose coin gate you cannot meet; this
+          // button has to refuse it too, or it becomes a way straight past the
+          // gate the moment the previous level is cleared.
+          const nextId = Math.min(levelId + 1, TOTAL_LEVELS);
+          const gate = store.canPlay(nextId);
+          if (!gate.ok) {
+            audio.play('error');
+            toast(
+              gate.reason === 'coins'
+                ? `Level ${nextId} needs a balance of 🪙 ${gate.requiredCoins} to enter`
+                : 'That level is still locked',
+              'error'
+            );
+            return;
+          }
+          router.navigate('game', { levelId: nextId });
+          break;
+        }
         case 'replay': router.navigate('game', { levelId }); break;
         case 'levels': router.navigate('levels'); break;
         case 'menu':   router.navigate('menu'); break;

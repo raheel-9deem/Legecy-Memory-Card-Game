@@ -68,14 +68,27 @@ function difficultyFor(id) {
 }
 
 /**
- * Default (preferred) theme for the first 20 levels — the random picker
- * overrides it in Auto mode. Levels past 20 cycle THEME_IDS instead of
- * spelling out another 50 strings.
+ * Default (preferred) theme per level — the random picker overrides it in Auto
+ * mode, so this is the set you get with a specific theme *un*equipped and Auto
+ * off. One entry per level, deliberately spelled out rather than derived: the
+ * rotation leans on the readable sets early and the lookalike ones (shapes,
+ * flags, tech) late, which no modulo expression would express.
  */
 const THEME_ROTATION = [
+  // 1–20 — the original ladder, unchanged.
   'fruits', 'animals', 'space', 'food', 'sports', 'tech', 'transport', 'nature',
   'weather', 'music', 'fruits', 'animals', 'shapes', 'space', 'food',
   'flags', 'tech', 'shapes', 'flags', 'shapes',
+  // 21–30
+  'tech', 'animals', 'shapes', 'weather', 'food', 'flags', 'music', 'space', 'nature', 'transport',
+  // 31–40
+  'shapes', 'fruits', 'flags', 'tech', 'weather', 'sports', 'music', 'nature', 'shapes', 'transport',
+  // 41–50
+  'flags', 'tech', 'nature', 'music', 'shapes', 'weather', 'transport', 'flags', 'tech', 'music',
+  // 51–60
+  'shapes', 'nature', 'weather', 'flags', 'transport', 'tech', 'music', 'shapes', 'flags', 'weather',
+  // 61–70
+  'tech', 'nature', 'shapes', 'music', 'flags', 'transport', 'weather', 'shapes', 'tech', 'flags',
 ];
 
 export const LEVELS = TIERS.flatMap((tier) => {
@@ -101,8 +114,15 @@ export const LEVELS = TIERS.flatMap((tier) => {
 
 export const TOTAL_LEVELS = LEVELS.length;
 
+/**
+ * id → level. Level select builds 70 tiles and asks storage.canPlay() for each,
+ * so a linear scan per lookup turned the grid render quadratic. A Map keeps it
+ * flat.
+ */
+const BY_ID = new Map(LEVELS.map((l) => [l.id, l]));
+
 export function getLevel(id) {
-  return LEVELS.find((l) => l.id === Number(id)) || LEVELS[0];
+  return BY_ID.get(Number(id)) || LEVELS[0];
 }
 
 export function hasNextLevel(id) {

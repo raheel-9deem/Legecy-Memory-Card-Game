@@ -21,6 +21,20 @@ const MISMATCH_DELAY = 1000;
 /** Time the board stays locked after a match (for the pop animation). */
 const MATCH_DELAY = 380;
 
+/**
+ * Hard mode shortens the clock to this fraction of the level's budget.
+ *
+ * It lives here, not in the gameplay screen, because everything downstream
+ * measures against the *effective* budget: the two-star test ("under half the
+ * limit"), the "time to spare" line on the win screen and the per-second coin
+ * bonus. When the screen shortened `timeLeft` after init instead, the engine
+ * still reported the full `level.timeLimit`, so a hard-mode round was scored
+ * as though it had used the missing 25% of the clock before the first flip.
+ */
+export const HARD_MODE_TIME = 0.75;
+/** Never squeeze a level below this many seconds, however small its budget. */
+const MIN_TIME_BUDGET = 10;
+
 export const GAME_STATE = {
   IDLE:    'idle',
   READY:   'ready',
@@ -176,6 +190,13 @@ export class GameManager extends EventBus {
     this.comboMatches = 0;
     this.timeLeft = 0;
     this.elapsed = 0;
+    /**
+     * The clock this round actually runs on — `level.timeLimit`, or the hard
+     * mode squeeze of it. Every measurement (stars, time-to-spare, coins) is
+     * taken against this, never against the raw level definition.
+     */
+    this.timeBudget = 0;
+    this.hardMode = false;
     this.locked = false;
     this._timerId = null;
     this._timeouts = new Set();
@@ -187,10 +208,12 @@ export class GameManager extends EventBus {
 
   /**
    * Prepare a level. Does not start the clock — the first flip does that.
-   * @param {{levelId:number, themeId?:string, cardBackId?:string, powerups?:object}} config
+   * @param {{levelId:number, themeId?:string, cardBackId?:string,
+   *          powerups?:object, hardMode?:boolean}} config
    *   themeId of 'auto' (the default) draws a random symbol set for this round.
+   *   hardMode shortens the clock to HARD_MODE_TIME of the level's budget.
    */
-  init({ levelId = 1, themeId = 'auto', cardBackId = 'back-nebula', powerups = {} } = {}) {
+  init({ levelId = 1, themeId = 'auto', cardBackId = 'back-nebula', powerups = {}, hardMode = false } = {}) {
     this.destroyTimers();
 
     this.level = getLevel(levelId);
@@ -198,6 +221,7 @@ export class GameManager extends EventBus {
     this.themeId = themeForLevel(this.level, themeId);
     this.cardBackId = cardBackId;
     this.powerups = { ...powerups };
+    this.hardMode = !!hardMode;
 
     const { symbols } = getTheme(this.themeId);
     const [rows, cols] = this._orientGrid(this.level.rows, this.level.cols);
@@ -209,7 +233,10 @@ export class GameManager extends EventBus {
     this.bestCombo = 0;
     this.comboMatches = 0;
     this.elapsed = 0;
-    this.timeLeft = this.level.timeLimit;
+    this.timeBudget = this.hardMode
+      ? Math.max(MIN_TIME_BUDGET, Math.round(this.level.timeLimit * HARD_MODE_TIME))
+      : this.level.timeLimit;
+    this.timeLeft = this.timeBudget;
     this.locked = false;
     this._frozenUntil = 0;
     this._clockStarted = false;
@@ -263,6 +290,7 @@ export class GameManager extends EventBus {
       themeId: this.themePreference,
       cardBackId: this.cardBackId,
       powerups: this.powerups,
+      hardMode: this.hardMode,
     });
     this.emit(EVENTS.GAME_RESET, this.snapshot());
     return this;
@@ -283,13 +311,14 @@ export class GameManager extends EventBus {
       pairs: this.board.pairsTotal,
       moves: this.moves,
       timeLeft: this.timeLeft,
-      timeLimit: this.level.timeLimit,
+      timeLimit: this.timeBudget,
     };
     const rating = won ? starCriteria(run) : { total: 0, criteria: [] };
     const purse = calculateCoins({
       timeLeft: this.timeLeft,
       comboMatches: this.comboMatches,
       won,
+      hardMode: this.hardMode,
     });
 
     const payload = {
@@ -300,7 +329,7 @@ export class GameManager extends EventBus {
       starDetail: rating.criteria,
       coins: purse.total,
       purse,
-      timeUsed: this.level.timeLimit - this.timeLeft,
+      timeUsed: Math.max(0, this.timeBudget - this.timeLeft),
     };
     this.emit(EVENTS.GAME_OVER, payload);
     return this;
@@ -324,7 +353,7 @@ export class GameManager extends EventBus {
       this._startTimer();
       this.emit(EVENTS.TIMER_START, {
         timeLeft: this.timeLeft,
-        timeLimit: this.level.timeLimit,
+        timeLimit: this.timeBudget,
       });
     }
 
@@ -410,6 +439,10 @@ export class GameManager extends EventBus {
     } else if (key === 'freeze') {
       this._frozenUntil = this.elapsed + POWERUP_META.freeze.duration / 1000;
     } else if (key === 'shuffle') {
+      // Same reason as the hint: a pair mid-resolve has an unflip timer holding
+      // references to two positions. Re-seating the deck under it leaves the
+      // wrong cards face-up when the timer fires.
+      if (this.locked) return false;
       this.board.shuffleUnmatched();
       this.emit(EVENTS.BOARD_SHUFFLE, { cards: this.board.cards.map((c) => c.toJSON()) });
     } else {
@@ -479,7 +512,14 @@ export class GameManager extends EventBus {
       ...this.snapshot(),
     });
 
-    if (this.timeLeft <= 0) this.gameOver('lost');
+    if (this.timeLeft <= 0) {
+      // A pair matched on the final second is still a clear. `_resolveMatch`
+      // holds the board for MATCH_DELAY before it checks for completion, so a
+      // tick landing inside that window would otherwise call the round lost
+      // and win the race — `gameOver` ignores the second call. Ask the board
+      // directly instead of waiting for the deferred check.
+      this.gameOver(this.board && this.board.isComplete ? 'won' : 'lost');
+    }
   }
 
   _emitProgress() {
@@ -527,7 +567,7 @@ export class GameManager extends EventBus {
       comboMatches: this.comboMatches,
       timeLeft: this.timeLeft,
       elapsed: this.elapsed,
-      timeLimit: this.level ? this.level.timeLimit : 0,
+      timeLimit: this.timeBudget,
       clockStarted: this._clockStarted,
       matched: this.board ? this.board.matchedCount : 0,
       total: this.board ? this.board.pairsTotal : 0,
@@ -536,6 +576,7 @@ export class GameManager extends EventBus {
       cols: this.board ? this.board.cols : 0,
       themeId: this.themeId,
       cardBackId: this.cardBackId,
+      hardMode: this.hardMode,
     };
   }
 }

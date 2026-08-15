@@ -18,8 +18,9 @@ import { comboFlash, flyCoins, matchSparks } from '../ui/effects.js';
 import { timerRing, TimerRing } from '../ui/timer-ring.js';
 
 const POWERUP_ORDER = ['hint', 'freeze', 'shuffle'];
-const HARD_MODE_TIME = 0.75;
-const HARD_MODE_BONUS = 1.25;
+/** Smallest card the 24-pair boards may shrink to before the board scrolls. */
+const MIN_CARD_W = 34;
+const MIN_CARD_H = 44;
 
 let unsubs = [];
 let boardEl = null;
@@ -28,6 +29,8 @@ let progressEl = null;
 let routerRef = null;
 let levelId = 1;
 let resizeHandler = null;
+/** rAF handle for the coalesced re-layout — see scheduleLayout(). */
+let layoutRaf = null;
 /** Guards the deferred navigation while the coin payout is in flight. */
 let mounted = false;
 
@@ -125,7 +128,10 @@ export default {
     unsubs.push(() => el.removeEventListener('click', onBarClick));
 
     // ---- responsive board ----
-    resizeHandler = () => layoutBoard(gameManager.board?.rows, gameManager.board?.cols);
+    // A drag-resize fires dozens of events a second and each re-layout reads
+    // clientWidth/clientHeight, so measuring inline would thrash layout. Coalesce
+    // to one measurement per frame.
+    resizeHandler = scheduleLayout;
     window.addEventListener('resize', resizeHandler);
     window.addEventListener('orientationchange', resizeHandler);
 
@@ -136,11 +142,11 @@ export default {
       themeId: store.state.equipped.theme,
       cardBackId: store.state.equipped.cardBack,
       powerups: { ...store.powerups },
+      // The engine owns the squeeze, so the star tests and the "time to spare"
+      // line measure against the clock the player actually got.
+      hardMode: !!store.getSetting('hardMode'),
     });
 
-    if (store.getSetting('hardMode')) {
-      gameManager.timeLeft = Math.round(gameManager.timeLeft * HARD_MODE_TIME);
-    }
     // The ring shows the full budget at rest; the clock waits for the first flip.
     timerRing.reset(gameManager.timeLeft);
     header.setTimer(gameManager.timeLeft);
@@ -153,6 +159,8 @@ export default {
     unsubs = [];
     window.removeEventListener('resize', resizeHandler);
     window.removeEventListener('orientationchange', resizeHandler);
+    if (layoutRaf) cancelAnimationFrame(layoutRaf);
+    layoutRaf = null;
     gameManager.destroyTimers();
     timerRing.detach();
     boardEl = wrapEl = progressEl = null;
@@ -189,6 +197,15 @@ function renderBoard(snapshot) {
   header.setMoves(0);
 }
 
+/** One re-layout per animation frame, however many resize events arrive. */
+function scheduleLayout() {
+  if (layoutRaf) return;
+  layoutRaf = requestAnimationFrame(() => {
+    layoutRaf = null;
+    layoutBoard(gameManager.board?.rows, gameManager.board?.cols);
+  });
+}
+
 /** Fit the grid to the available space on any screen size. */
 function layoutBoard(rows, cols) {
   if (!boardEl || !wrapEl || !rows || !cols) return;
@@ -222,10 +239,18 @@ function layoutBoard(rows, cols) {
     ({ cw, ch } = fit(availW));
   }
 
+  // Floors keep a 6×8 board legible on a phone, but they can push the grid past
+  // the wrap — so let the board scroll rather than spill under the game bar.
+  const finalCw = Math.max(MIN_CARD_W, Math.floor(cw));
+  const finalCh = Math.max(MIN_CARD_H, Math.floor(ch));
   boardEl.style.setProperty('--cols', cols);
   boardEl.style.setProperty('--board-gap', `${gap}px`);
-  boardEl.style.setProperty('--cw', `${Math.max(34, Math.floor(cw))}px`);
-  boardEl.style.setProperty('--ch', `${Math.max(44, Math.floor(ch))}px`);
+  boardEl.style.setProperty('--cw', `${finalCw}px`);
+  boardEl.style.setProperty('--ch', `${finalCh}px`);
+
+  const needsW = cols * finalCw + gap * (cols - 1);
+  const needsH = rows * finalCh + gap * (rows - 1);
+  wrapEl.classList.toggle('cramped', needsW > availW + 1 || needsH > availH + 1);
 }
 
 function cardEl(id) {
@@ -338,12 +363,13 @@ function onHintHide() {
 function onGameOver(e) {
   const d = e.detail;
   const level = getLevel(levelId);
-  let coins = d.coins;
+  // The purse already carries the hard-mode bonus (see core/coins.js), so the
+  // itemised rows on the win screen sum to exactly this number.
+  const coins = d.coins;
   let record = null;
   let balanceBefore = coinBank.total;
 
   if (d.won) {
-    if (store.getSetting('hardMode')) coins = Math.round(coins * HARD_MODE_BONUS);
     record = store.recordWin(levelId, { stars: d.stars, time: d.timeUsed, moves: d.moves });
     balanceBefore = coinBank.total;
     coinBank.award(coins, { levelId, purse: d.purse });
@@ -368,7 +394,10 @@ function onGameOver(e) {
       bestCombo: d.bestCombo,
       comboMatches: d.comboMatches,
       timeUsed: d.timeUsed,
-      timeLimit: level.timeLimit,
+      // The clock the round actually ran on, not the level's paper budget —
+      // they differ under hard mode.
+      timeLimit: d.timeLimit,
+      hardMode: d.hardMode,
       matched: d.matched,
       total: d.total,
       pairs: level.pairs,

@@ -8,6 +8,13 @@ const ICONS = { success: '✅', error: '⚠️', info: 'ℹ️', coin: '🪙' };
 
 let el = null;
 let hideTimer = null;
+/**
+ * The second stage of the hide: `.show` comes off, then `.hidden` goes on once
+ * the 260ms fade has run. It has to be tracked separately — a follow-up toast
+ * arriving inside that window would otherwise be hidden by the *previous*
+ * toast's timer a fraction of a second after appearing.
+ */
+let fadeTimer = null;
 
 export function initToast() {
   el = document.getElementById('toast');
@@ -25,6 +32,7 @@ export function toast(message, type = 'info', duration = 2400) {
   if (!el) return;
 
   clearTimeout(hideTimer);
+  clearTimeout(fadeTimer);
   el.className = `toast ${type}`;
   el.innerHTML = `<span>${ICONS[type] || ''}</span><span>${escapeHtml(message)}</span>`;
   el.classList.remove('hidden');
@@ -35,7 +43,7 @@ export function toast(message, type = 'info', duration = 2400) {
 
   hideTimer = setTimeout(() => {
     el.classList.remove('show');
-    setTimeout(() => el.classList.add('hidden'), 260);
+    fadeTimer = setTimeout(() => el.classList.add('hidden'), 260);
   }, duration);
 }
 
