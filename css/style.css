@@ -1354,7 +1354,15 @@ button:disabled, .btn-primary:disabled, .btn-secondary:disabled, .btn-gold:disab
   .level-size { font-size: 0.58rem; }
   .level-best { font-size: 0.6rem; }
   .level-req { top: 6px; left: 6px; padding: 2px 5px; font-size: 0.52rem; }
-  .difficulty-tag { display: none; }
+  /* 70 levels span five difficulty bands, so this tag is the only thing telling
+     an expert board from a master one. `display: none` threw that away; shrink it
+     to a colour chip instead. The text stays in the DOM for screen readers. */
+  .difficulty-tag {
+    top: 6px; right: 6px;
+    width: 10px; height: 10px;
+    padding: 0; border-radius: 50%;
+    overflow: hidden; text-indent: -999px;
+  }
 
   .store-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
   .store-item { padding: 14px; }
