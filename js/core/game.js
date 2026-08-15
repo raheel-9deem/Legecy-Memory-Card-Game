@@ -328,7 +328,7 @@ export class GameManager extends EventBus {
       });
     }
 
-    this.emit(EVENTS.CARD_FLIP, { card: card.toJSON(), ...this.snapshot() });
+    this.emit(EVENTS.CARD_FLIP, { ...this.snapshot(), card: card.toJSON() });
 
     const open = this.board.flippedCards;
     if (open.length < 2) return true;
@@ -355,10 +355,10 @@ export class GameManager extends EventBus {
     this.score += 100 * this.combo;
 
     this.emit(EVENTS.PAIR_MATCH, {
+      ...this.snapshot(),
       cards: [first.toJSON(), second.toJSON()],
       combo: this.combo,
       comboMatches: this.comboMatches,
-      ...this.snapshot(),
     });
     this._emitProgress();
 
@@ -376,8 +376,8 @@ export class GameManager extends EventBus {
     this.score = Math.max(0, this.score - 10);
 
     this.emit(EVENTS.PAIR_MISMATCH, {
-      cards: [first.toJSON(), second.toJSON()],
       ...this.snapshot(),
+      cards: [first.toJSON(), second.toJSON()],
     });
 
     this._defer(() => {
@@ -385,8 +385,8 @@ export class GameManager extends EventBus {
       second.unflip();
       this.locked = false;
       this.emit(EVENTS.CARD_UNFLIP, {
-        cards: [first.toJSON(), second.toJSON()],
         ...this.snapshot(),
+        cards: [first.toJSON(), second.toJSON()],
       });
     }, MISMATCH_DELAY);
   }

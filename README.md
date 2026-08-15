@@ -253,6 +253,7 @@ node tools/_build-check.mjs js .mirror
 
 node tools/_engine-test.mjs "$PWD/.mirror"        # 197 headless engine assertions
 node tools/_hint-test.mjs "$PWD/.mirror"          #  15 hint reveals-exactly-the-right-cards assertions
+node tools/_reveal-payload-test.mjs               #  16 pair/mismatch/unflip payload is 2 cards, never the board
 node tools/_powerup-coin-test.mjs                #  37 per-use coin-fee assertions
 node tools/_wiring-check.mjs .                    # 172 static wiring/CSS checks
 ```
@@ -266,9 +267,16 @@ The engine suite covers deck integrity on all 20 levels, the first-flip clock, t
 mismatch hold, combo scoring and combo-match counting, power-ups, the 3-star boundaries,
 the coin formula (including part-second flooring and loss payouts), unlock progression,
 coin-bank persistence across a reload, and that the Coming Soon teasers cannot be purchased
-at any price. The **hint suite** pins the fix for the old "revealing a pair reveals the whole
-board" bug — `_hintTargets()` returns only the partner (1) or a single pair (2), never the
-whole board, and the count is checked on untouched, one-card-held and last-pair boards. The
+at any price. The **hint suite** pins the hint half of the old "revealing a pair reveals the
+whole board" bug — `_hintTargets()` returns only the partner (1) or a single pair (2), never
+the whole board, and the count is checked on untouched, one-card-held and last-pair boards.
+The **reveal-payload suite** pins the other half, which lived in the event payloads: each
+pair event was built as `{ cards: [first, second], ...snapshot() }`, and because `snapshot()`
+also carries a `cards` key holding the *entire* board, the spread silently overwrote the
+two-card array — so matching one pair told the renderer to mark every card matched, flipping
+the whole board face up. The payloads now spread `snapshot()` **first** and set their own
+keys after, and the suite asserts `pair:match`, `pair:mismatch` and `card:unflip` each carry
+exactly two cards, across a full 8-pair clear and a full sweep of mismatches. The
 **power-up coin suite** locks the per-use fee: a fire requires both a stocked unit and the
 `useCost` coins, spends exactly one of each on success, and on any refusal (no funds, no
 stock, or the engine refusing a locked board) burns neither. The wiring check verifies every
