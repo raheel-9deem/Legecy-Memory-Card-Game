@@ -237,9 +237,11 @@ function footer(item, { owned, equipped, affordable }) {
   if (item.kind === 'powerup') {
     const useCost = POWERUP_META[item.id]?.useCost || 0;
     return `
-      <span class="store-price">🪙 ${item.price}</span>
+      <div class="store-price-col">
+        <span class="store-price">🪙 ${item.price}</span>
+        ${useCost ? `<span class="store-usecost">🪙 ${useCost} per use</span>` : ''}
+      </div>
       <button class="store-btn" data-buy="${item.id}" ${affordable ? '' : 'disabled'}>Buy</button>
-      ${useCost ? `<span class="store-usecost">🪙 ${useCost} / use</span>` : ''}
     `;
   }
   if (equipped) {

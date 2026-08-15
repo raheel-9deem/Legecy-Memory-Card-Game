@@ -779,6 +779,16 @@ button:disabled, .btn-primary:disabled, .btn-secondary:disabled, .btn-gold:disab
 .store-desc { font-size: 0.76rem; color: var(--text-muted); line-height: 1.5; flex: 1; }
 .store-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 2px; }
 .store-price { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; color: var(--gold); font-size: 0.94rem; }
+/* Left column of a power-up footer: purchase price stacked over the per-use fee. */
+.store-price-col { display: flex; flex-direction: column; gap: 2px; line-height: 1.2; }
+.store-usecost {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 0.66rem; font-weight: 600; color: var(--text-muted);
+  background: rgba(255, 215, 0, 0.1);
+  border: 1px solid rgba(255, 215, 0, 0.3);
+  border-radius: var(--radius-pill);
+  padding: 1px 7px; width: fit-content;
+}
 .store-btn {
   padding: 9px 18px;
   font-size: 0.78rem; font-weight: 700;
