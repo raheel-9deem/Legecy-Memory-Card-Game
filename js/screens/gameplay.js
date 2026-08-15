@@ -385,16 +385,34 @@ function onGameOver(e) {
    ============================================================ */
 
 function usePowerup(key) {
-  if (!store.powerupCount(key)) {
+  const meta = POWERUP_META[key];
+  const count = store.powerupCount(key);
+
+  // A use demands BOTH a stocked unit and the per-use coin fee. Report the
+  // binding constraint so the player knows what to fix.
+  if (!count) {
     audio.play('error');
-    toast(`No ${POWERUP_META[key].name} left — buy more in the store`, 'error');
+    toast(`No ${meta.name} left — buy more in the store`, 'error');
     return;
   }
+  const cost = meta.useCost || 0;
+  if (cost && !store.canAfford(cost)) {
+    audio.play('error');
+    toast(`Need 🪙 ${cost} to use ${meta.name}`, 'error');
+    return;
+  }
+
+  // Ask the engine first: if it refuses (locked board, fully matched, etc.)
+  // nothing is spent — no unit, no coins.
   if (!gameManager.usePowerup(key)) {
     audio.play('error');
     return;
   }
+
+  // The engine accepted it, so dock one stocked unit…
   store.usePowerup(key);
+  // …and charge the per-use coin fee from the live balance.
+  if (cost) store.spendCoins(cost);
   audio.play('powerup');
 
   if (key === 'freeze') toast('Clock frozen for 10 seconds', 'success', 1600);
