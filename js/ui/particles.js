@@ -152,17 +152,21 @@ class ParticleField {
   makeParticle(scatter = false) {
     const w = window.innerWidth;
     const h = window.innerHeight;
+    const colorIndex = Math.floor(Math.random() * COLORS.length);
+    const r = SPRITE_MIN_R + Math.random() * (SPRITE_MAX_R - SPRITE_MIN_R);
     return {
       x: Math.random() * w,
       y: scatter ? Math.random() * h : h + 20,
-      r: 1.2 + Math.random() * 3.4,
+      r,
       speed: 0.12 + Math.random() * 0.55,
       drift: (Math.random() - 0.5) * 0.35,
       phase: Math.random() * Math.PI * 2,
       swayAmp: 6 + Math.random() * 22,
       alpha: 0.18 + Math.random() * 0.5,
       twinkle: 0.4 + Math.random() * 1.6,
-      color: COLORS[Math.floor(Math.random() * COLORS.length)],
+      color: COLORS[colorIndex],
+      // Resolved once at birth so the draw loop is a property read, not a lookup.
+      img: this.sprite(colorIndex, r),
       depth: 0.3 + Math.random() * 0.7,       // parallax weight
     };
   }
@@ -226,31 +230,30 @@ class ParticleField {
       const x = p.x + sway + px * p.depth;
       const y = p.y + py * p.depth;
       const pulse = 0.72 + 0.28 * Math.sin(now / 700 * p.twinkle + p.phase);
-      const alpha = p.alpha * pulse;
 
-      const grad = ctx.createRadialGradient(x, y, 0, x, y, p.r * 5);
-      grad.addColorStop(0, `${p.color} ${alpha})`);
-      grad.addColorStop(0.45, `${p.color} ${alpha * 0.28})`);
-      grad.addColorStop(1, `${p.color} 0)`);
-
-      ctx.fillStyle = grad;
-      ctx.beginPath();
-      ctx.arc(x, y, p.r * 5, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.fillStyle = `rgba(255, 255, 255, ${alpha * 0.75})`;
-      ctx.beginPath();
-      ctx.arc(x, y, p.r * 0.42, 0, Math.PI * 2);
-      ctx.fill();
+      // One drawImage of a cached sprite, with the twinkle expressed as opacity.
+      const s = p.img;
+      ctx.globalAlpha = Math.min(1, p.alpha * pulse);
+      ctx.drawImage(s.canvas, x - s.half, y - s.half);
     }
 
+    ctx.globalAlpha = 1;
     ctx.restore();
   }
 
   destroy() {
     this.stop();
+    if (this._resizeRaf) cancelAnimationFrame(this._resizeRaf);
+    this._resizeRaf = null;
     window.removeEventListener('resize', this._onResize);
     window.removeEventListener('pointermove', this._onPointer);
+    // Registered anonymously once, which meant a re-init stacked a second handler
+    // that outlived the field and kept restarting it.
+    document.removeEventListener('visibilitychange', this._onVisibility);
+    this._unsubs.forEach((fn) => fn());
+    this._unsubs = [];
+    this.sprites.clear();
+    this.particles = [];
   }
 }
 
