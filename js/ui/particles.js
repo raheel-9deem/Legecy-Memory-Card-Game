@@ -137,7 +137,11 @@ class ParticleField {
     this.canvas.height = Math.floor(window.innerHeight * this.dpr);
     this.canvas.style.width = `${window.innerWidth}px`;
     this.canvas.style.height = `${window.innerHeight}px`;
-    this.spawn();
+    // Deliberately no spawn() here. Re-seeding the field re-scattered every orb
+    // on each resize event, so dragging a window edge looked like the background
+    // teleporting. update() already tops the count up or trims it to whatever the
+    // new viewport asks for, one particle at a time.
+    if (!this.particles.length) this.spawn();
   }
 
   spawn() {
