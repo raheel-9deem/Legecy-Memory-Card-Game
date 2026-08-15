@@ -19,6 +19,13 @@ const SOON_TAB = 'soon';
 let activeTab = 'cardBack';
 let unsubs = [];
 let rootEl = null;
+/**
+ * One body repaint per frame. A single purchase emits COINS_CHANGED *and*
+ * POWERUPS_CHANGED and then calls refresh() directly, so the grid was being
+ * rebuilt three times — and each rebuild restarts every card's entrance
+ * animation, which read as a flicker.
+ */
+let refreshRaf = null;
 
 export default {
   title: 'Store',
@@ -87,14 +94,16 @@ export default {
     unsubs.push(
       () => el.removeEventListener('click', onClick),
       () => el.removeEventListener('submit', onSubmit),
-      bus.on(EVENTS.COINS_CHANGED, refresh),
-      bus.on(EVENTS.POWERUPS_CHANGED, refresh)
+      bus.on(EVENTS.COINS_CHANGED, refreshStock),
+      bus.on(EVENTS.POWERUPS_CHANGED, refreshStock)
     );
   },
 
   unmount() {
     unsubs.forEach((fn) => fn());
     unsubs = [];
+    if (refreshRaf) cancelAnimationFrame(refreshRaf);
+    refreshRaf = null;
     rootEl = null;
   },
 };
@@ -259,8 +268,22 @@ function footer(item, { owned, equipped, affordable }) {
 }
 
 function refresh() {
-  const body = rootEl?.querySelector('#store-body');
-  if (body) body.innerHTML = renderBody();
+  if (refreshRaf) return;
+  refreshRaf = requestAnimationFrame(() => {
+    refreshRaf = null;
+    const body = rootEl?.querySelector('#store-body');
+    if (body) body.innerHTML = renderBody();
+  });
+}
+
+/**
+ * The balance-driven repaint. It skips the teaser tab on purpose: nothing there
+ * is priced against the wallet, but it does hold the notify form, and blowing
+ * `#store-body` away mid-sentence would take a half-typed address with it.
+ */
+function refreshStock() {
+  if (activeTab === SOON_TAB) return;
+  refresh();
 }
 
 /* ---------- actions ---------- */
