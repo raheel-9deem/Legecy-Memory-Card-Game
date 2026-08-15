@@ -1,0 +1,3 @@
+# Dev-only build output: the .mjs mirror of js/ that the headless Node
+# test runners import. Regenerate with `node tools/_build-win.mjs`.
+scratch-mmc/
