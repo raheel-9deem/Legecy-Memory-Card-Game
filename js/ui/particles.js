@@ -63,6 +63,10 @@ class ParticleField {
     this.enabled = true;
     this.pointer = { x: 0.5, y: 0.5 };
     this.dpr = 1;
+    /** `${colorIndex}:${radiusBucket}` -> pre-rendered orb. Built on demand. */
+    this.sprites = new Map();
+    this._resizeRaf = null;
+    this._unsubs = [];
   }
 
   init(canvasId = 'particle-canvas') {
@@ -74,23 +78,50 @@ class ParticleField {
     this.enabled = store.getSetting('particles') !== false && !reduced;
 
     this.resize();
-    window.addEventListener('resize', this._onResize = () => this.resize());
+
+    // Coalesce resize storms to one canvas rebuild per frame: each one reallocates
+    // the backing store, and doing it per event stalls a window drag.
+    this._onResize = () => {
+      if (this._resizeRaf) return;
+      this._resizeRaf = requestAnimationFrame(() => {
+        this._resizeRaf = null;
+        this.resize();
+      });
+    };
+    window.addEventListener('resize', this._onResize);
+
     window.addEventListener('pointermove', this._onPointer = (e) => {
       this.pointer.x = e.clientX / window.innerWidth;
       this.pointer.y = e.clientY / window.innerHeight;
     }, { passive: true });
-    document.addEventListener('visibilitychange', () => {
-      document.hidden ? this.stop() : this.start();
-    });
 
-    bus.on(EVENTS.SETTING_CHANGED, (e) => {
+    this._onVisibility = () => {
+      document.hidden ? this.stop() : this.start();
+    };
+    document.addEventListener('visibilitychange', this._onVisibility);
+
+    this._unsubs.push(bus.on(EVENTS.SETTING_CHANGED, (e) => {
       if (e.detail.key !== 'particles') return;
       this.enabled = !!e.detail.value;
       this.enabled ? this.start() : this.clearAndStop();
-    });
+    }));
 
     this.start();
     return this;
+  }
+
+  /** Nearest pre-rendered orb for a colour/radius, built once and reused. */
+  sprite(colorIndex, radius) {
+    const t = (radius - SPRITE_MIN_R) / (SPRITE_MAX_R - SPRITE_MIN_R);
+    const bucket = Math.max(0, Math.min(SPRITE_STEPS - 1, Math.round(t * (SPRITE_STEPS - 1))));
+    const key = `${colorIndex}:${bucket}`;
+    let sprite = this.sprites.get(key);
+    if (!sprite) {
+      const r = SPRITE_MIN_R + (bucket / (SPRITE_STEPS - 1)) * (SPRITE_MAX_R - SPRITE_MIN_R);
+      sprite = buildSprite(COLORS[colorIndex], r);
+      this.sprites.set(key, sprite);
+    }
+    return sprite;
   }
 
   /** Particle count scales with viewport so phones stay smooth. */
