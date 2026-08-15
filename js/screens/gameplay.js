@@ -44,11 +44,19 @@ export default {
     const powerupBtns = POWERUP_ORDER.map((key) => {
       const meta = POWERUP_META[key];
       const count = store.powerupCount(key);
+      const cost = meta.useCost || 0;
+      // The button only lights up when the player can actually fire it:
+      // a stocked unit AND the per-use coin fee.
+      const ready = count > 0 && (cost === 0 || store.canAfford(cost));
+      const costPill = cost
+        ? `<span class="powerup-cost" data-cost="${key}">🪙${cost}</span>`
+        : '';
       return `
-        <button class="powerup-btn" data-powerup="${key}" ${count ? '' : 'disabled'}
-                aria-label="${meta.name} power-up">
+        <button class="powerup-btn" data-powerup="${key}" ${ready ? '' : 'disabled'}
+                aria-label="${meta.name} power-up, costs ${cost} coins">
           <span>${meta.icon}</span>
           <span>${meta.name}</span>
+          ${costPill}
           <span class="powerup-count" data-count="${key}">${count}</span>
         </button>
       `;
@@ -92,7 +100,10 @@ export default {
       gameManager.on(EVENTS.GAME_PAUSE, () => timerRing.setStateText('paused')),
       gameManager.on(EVENTS.GAME_RESUME, () =>
         timerRing.setStateText(gameManager.clockStarted ? 'remaining' : 'tap a card')),
-      bus.on(EVENTS.POWERUPS_CHANGED, syncPowerupButtons)
+      bus.on(EVENTS.POWERUPS_CHANGED, syncPowerupButtons),
+      // A power-up use also spends coins, so the disabled state must re-evaluate
+      // when the balance drops too low to afford the next use.
+      bus.on(EVENTS.COINS_CHANGED, syncPowerupButtons)
     );
 
     // ---- board interaction ----
@@ -420,10 +431,15 @@ function usePowerup(key) {
 
 function syncPowerupButtons() {
   POWERUP_ORDER.forEach((key) => {
+    const meta = POWERUP_META[key];
     const count = store.powerupCount(key);
+    const cost = meta.useCost || 0;
+    const ready = count > 0 && (cost === 0 || store.canAfford(cost));
+
     const badge = document.querySelector(`[data-count="${key}"]`);
     if (badge) badge.textContent = count;
+
     const btn = document.querySelector(`[data-powerup="${key}"]`);
-    if (btn) btn.disabled = count === 0;
+    if (btn) btn.disabled = !ready;
   });
 }

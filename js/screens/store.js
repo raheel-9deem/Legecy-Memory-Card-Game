@@ -5,6 +5,7 @@
 import { store } from '../core/storage.js';
 import {
   STORE_ITEMS, STORE_TABS, COMING_SOON, getCardBack, getTheme, AUTO_THEME,
+  POWERUP_META,
 } from '../data/store-items.js';
 import { bus, EVENTS } from '../core/events.js';
 import { header } from '../ui/header.js';
@@ -234,9 +235,11 @@ function previewContent(item) {
 
 function footer(item, { owned, equipped, affordable }) {
   if (item.kind === 'powerup') {
+    const useCost = POWERUP_META[item.id]?.useCost || 0;
     return `
       <span class="store-price">🪙 ${item.price}</span>
       <button class="store-btn" data-buy="${item.id}" ${affordable ? '' : 'disabled'}>Buy</button>
+      ${useCost ? `<span class="store-usecost">🪙 ${useCost} / use</span>` : ''}
     `;
   }
   if (equipped) {

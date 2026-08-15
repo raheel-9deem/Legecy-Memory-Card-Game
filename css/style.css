@@ -678,6 +678,17 @@ button:disabled, .btn-primary:disabled, .btn-secondary:disabled, .btn-gold:disab
   border-radius: var(--radius-pill);
   font-size: 0.68rem; font-weight: 800;
 }
+/* Per-use coin fee shown on the button — sits between the name and count. */
+.powerup-cost {
+  padding: 1px 7px;
+  background: rgba(255, 215, 0, 0.14);
+  border: 1px solid rgba(255, 215, 0, 0.45);
+  border-radius: var(--radius-pill);
+  font-size: 0.64rem; font-weight: 700;
+  color: #ffd24a;
+  text-shadow: 0 0 6px rgba(255, 200, 0, 0.4);
+}
+.powerup-btn:disabled .powerup-cost { opacity: 0.5; }
 
 .progress-track {
   flex: 0 0 auto;
