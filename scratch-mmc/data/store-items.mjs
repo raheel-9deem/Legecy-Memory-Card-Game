@@ -107,10 +107,17 @@ export const COMING_SOON = [
   },
 ];
 
+/**
+ * Power-up metadata. `duration` is how long the visual effect lasts (ms).
+ * `useCost` is the per-use coin fee charged from the player's balance every
+ * time the power-up is fired during a round — on top of the inventory the
+ * player stocked in the store. A use requires BOTH a unit in stock AND the
+ * coin fee; a player short on either cannot fire it.
+ */
 export const POWERUP_META = {
-  hint:    { name: 'Reveal',  icon: '👁️', duration: 1500 },
-  freeze:  { name: 'Freeze',  icon: '🧊',  duration: 10000 },
-  shuffle: { name: 'Shuffle', icon: '🔀',  duration: 0 },
+  hint:    { name: 'Reveal',  icon: '👁️', duration: 1500, useCost: 20 },
+  freeze:  { name: 'Freeze',  icon: '🧊',  duration: 10000, useCost: 40 },
+  shuffle: { name: 'Shuffle', icon: '🔀',  duration: 0,    useCost: 30 },
 };
 
 export function getCardBack(id) {

@@ -44,11 +44,19 @@ export default {
     const powerupBtns = POWERUP_ORDER.map((key) => {
       const meta = POWERUP_META[key];
       const count = store.powerupCount(key);
+      const cost = meta.useCost || 0;
+      // The button only lights up when the player can actually fire it:
+      // a stocked unit AND the per-use coin fee.
+      const ready = count > 0 && (cost === 0 || store.canAfford(cost));
+      const costPill = cost
+        ? `<span class="powerup-cost" data-cost="${key}">🪙${cost}</span>`
+        : '';
       return `
-        <button class="powerup-btn" data-powerup="${key}" ${count ? '' : 'disabled'}
-                aria-label="${meta.name} power-up">
+        <button class="powerup-btn" data-powerup="${key}" ${ready ? '' : 'disabled'}
+                aria-label="${meta.name} power-up, costs ${cost} coins">
           <span>${meta.icon}</span>
           <span>${meta.name}</span>
+          ${costPill}
           <span class="powerup-count" data-count="${key}">${count}</span>
         </button>
       `;
@@ -92,7 +100,10 @@ export default {
       gameManager.on(EVENTS.GAME_PAUSE, () => timerRing.setStateText('paused')),
       gameManager.on(EVENTS.GAME_RESUME, () =>
         timerRing.setStateText(gameManager.clockStarted ? 'remaining' : 'tap a card')),
-      bus.on(EVENTS.POWERUPS_CHANGED, syncPowerupButtons)
+      bus.on(EVENTS.POWERUPS_CHANGED, syncPowerupButtons),
+      // A power-up use also spends coins, so the disabled state must re-evaluate
+      // when the balance drops too low to afford the next use.
+      bus.on(EVENTS.COINS_CHANGED, syncPowerupButtons)
     );
 
     // ---- board interaction ----
@@ -385,16 +396,34 @@ function onGameOver(e) {
    ============================================================ */
 
 function usePowerup(key) {
-  if (!store.powerupCount(key)) {
+  const meta = POWERUP_META[key];
+  const count = store.powerupCount(key);
+
+  // A use demands BOTH a stocked unit and the per-use coin fee. Report the
+  // binding constraint so the player knows what to fix.
+  if (!count) {
     audio.play('error');
-    toast(`No ${POWERUP_META[key].name} left — buy more in the store`, 'error');
+    toast(`No ${meta.name} left — buy more in the store`, 'error');
     return;
   }
+  const cost = meta.useCost || 0;
+  if (cost && !store.canAfford(cost)) {
+    audio.play('error');
+    toast(`Need 🪙 ${cost} to use ${meta.name}`, 'error');
+    return;
+  }
+
+  // Ask the engine first: if it refuses (locked board, fully matched, etc.)
+  // nothing is spent — no unit, no coins.
   if (!gameManager.usePowerup(key)) {
     audio.play('error');
     return;
   }
+
+  // The engine accepted it, so dock one stocked unit…
   store.usePowerup(key);
+  // …and charge the per-use coin fee from the live balance.
+  if (cost) store.spendCoins(cost);
   audio.play('powerup');
 
   if (key === 'freeze') toast('Clock frozen for 10 seconds', 'success', 1600);
@@ -402,10 +431,15 @@ function usePowerup(key) {
 
 function syncPowerupButtons() {
   POWERUP_ORDER.forEach((key) => {
+    const meta = POWERUP_META[key];
     const count = store.powerupCount(key);
+    const cost = meta.useCost || 0;
+    const ready = count > 0 && (cost === 0 || store.canAfford(cost));
+
     const badge = document.querySelector(`[data-count="${key}"]`);
     if (badge) badge.textContent = count;
+
     const btn = document.querySelector(`[data-powerup="${key}"]`);
-    if (btn) btn.disabled = count === 0;
+    if (btn) btn.disabled = !ready;
   });
 }
