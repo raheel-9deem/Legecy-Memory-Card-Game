@@ -16,6 +16,44 @@ const COLORS = [
   'rgba(176, 124, 255,',  // light purple
 ];
 
+/**
+ * Orbs are drawn from pre-rendered sprites rather than a fresh
+ * createRadialGradient() per particle per frame. At 70 particles and 60fps that
+ * was ~4200 gradient objects a second, all of them identical bar their radius —
+ * easily the most expensive thing on an otherwise idle page. Each sprite is one
+ * colour at one quantised radius, tinted white-hot at the core, and the per-frame
+ * twinkle is applied with globalAlpha instead of rebuilding the gradient.
+ */
+const SPRITE_STEPS = 8;      // radius buckets between MIN and MAX
+const SPRITE_MIN_R = 1.2;
+const SPRITE_MAX_R = 4.6;
+
+function buildSprite(color, radius) {
+  const glow = radius * 5;
+  const size = Math.ceil(glow * 2) + 2;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  const c = canvas.getContext('2d');
+  const mid = size / 2;
+
+  const grad = c.createRadialGradient(mid, mid, 0, mid, mid, glow);
+  grad.addColorStop(0, `${color} 1)`);
+  grad.addColorStop(0.45, `${color} 0.28)`);
+  grad.addColorStop(1, `${color} 0)`);
+  c.fillStyle = grad;
+  c.beginPath();
+  c.arc(mid, mid, glow, 0, Math.PI * 2);
+  c.fill();
+
+  // The bright core, baked in so the draw loop is a single drawImage.
+  c.fillStyle = 'rgba(255, 255, 255, 0.75)';
+  c.beginPath();
+  c.arc(mid, mid, radius * 0.42, 0, Math.PI * 2);
+  c.fill();
+
+  return { canvas, size, half: mid };
+}
+
 class ParticleField {
   constructor() {
     this.canvas = null;

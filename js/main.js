@@ -115,9 +115,17 @@ function setupNavigationIntents(router) {
 
 function setupKeyboard(router) {
   document.addEventListener('keydown', (e) => {
-    if (e.target.matches('input, textarea')) return;
+    // `e.target` is not always an Element (a keydown routed at the document has
+    // no matches()), and `e.key` is undefined for some IME and hardware events.
+    const target = e.target;
+    if (target instanceof Element && target.closest('input, textarea, [contenteditable]')) return;
+    if (typeof e.key !== 'string') return;
+    // Let browser and OS shortcuts through untouched.
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
 
-    if (e.key === 'Escape' || e.key.toLowerCase() === 'p') {
+    const key = e.key.toLowerCase();
+
+    if (e.key === 'Escape' || key === 'p') {
       if (router.currentName === 'game') {
         e.preventDefault();
         bus.emit('ui:pause-pressed', {});
@@ -127,7 +135,7 @@ function setupKeyboard(router) {
       return;
     }
 
-    if (e.key.toLowerCase() === 'm' && router.currentName !== 'game') {
+    if (key === 'm' && router.currentName !== 'game') {
       router.navigate('menu');
     }
   });
