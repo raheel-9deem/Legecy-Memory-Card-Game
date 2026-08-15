@@ -65,9 +65,11 @@ export const STORE_ITEMS = [
   { id: 'flags',     kind: 'theme', name: 'World Flags',   desc: 'Stripes on stripes. Brutally hard.',        price: 750, icon: '🏳️', badge: 'hard' },
 
   // ---- Power-ups (consumable) ----
-  { id: 'hint',    kind: 'powerup', name: 'Reveal ×3',  desc: 'Peek at every face for 1.5 seconds.', price: 120, icon: '👁️', amount: 3, badge: null },
-  { id: 'freeze',  kind: 'powerup', name: 'Freeze ×2',  desc: 'Stop the clock for 10 seconds.',      price: 150, icon: '🧊',  amount: 2, badge: null },
-  { id: 'shuffle', kind: 'powerup', name: 'Shuffle ×2', desc: 'Rearrange the unmatched cards.',      price: 100, icon: '🔀',  amount: 2, badge: null },
+  // "Peek at every face" was a lie: _hintTargets() shows the partner of the card
+  // in your hand, or one random pair if your hands are empty. Never the board.
+  { id: 'hint',    kind: 'powerup', name: 'Reveal ×3',  desc: 'Flash one matching pair for 1.5 seconds.', price: 120, icon: '👁️', amount: 3, badge: null },
+  { id: 'freeze',  kind: 'powerup', name: 'Freeze ×2',  desc: 'Stop the clock for 10 seconds.',           price: 150, icon: '🧊',  amount: 2, badge: null },
+  { id: 'shuffle', kind: 'powerup', name: 'Shuffle ×2', desc: 'Rearrange the unmatched cards.',           price: 100, icon: '🔀',  amount: 2, badge: null },
 ];
 
 export const STORE_TABS = [
