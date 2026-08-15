@@ -82,21 +82,57 @@ function renderCard(level, index) {
   `;
 }
 
+/**
+ * Levels in id order, split into consecutive runs of the same difficulty.
+ *
+ * Derived from the level table rather than hard-coded ranges, so re-tiering a
+ * level in core/levels.js moves it between bands here with no edit.
+ */
+function bands() {
+  const out = [];
+  for (const level of LEVELS) {
+    const last = out[out.length - 1];
+    if (last && last.difficulty === level.difficulty) last.levels.push(level);
+    else out.push({ difficulty: level.difficulty, levels: [level] });
+  }
+  return out;
+}
+
 export default {
   title: 'Select Level',
   header: { show: true, home: true, pause: false, timer: false, moves: false, level: true },
 
   render() {
-    const cards = LEVELS.map(renderCard).join('');
+    // One running index across all bands so the stagger reads as a single
+    // cascade down the page instead of restarting at every heading.
+    let index = 0;
+
+    const sections = bands().map((band) => {
+      const meta = BAND_META[band.difficulty] || { label: band.difficulty, blurb: '' };
+      const first = band.levels[0].id;
+      const last = band.levels[band.levels.length - 1].id;
+      const cleared = band.levels.filter((l) => store.getLevelRecord(l.id).cleared).length;
+      const cards = band.levels.map((level) => renderCard(level, index++)).join('');
+
+      return `
+        <section class="level-band" data-difficulty="${band.difficulty}">
+          <div class="level-band-head">
+            <h3>${meta.label}</h3>
+            <span class="level-band-range">Levels ${first}–${last}</span>
+            <span class="level-band-blurb">${meta.blurb}</span>
+            <span class="level-band-count">${cleared}/${band.levels.length}</span>
+          </div>
+          <div class="level-grid">${cards}</div>
+        </section>
+      `;
+    }).join('');
 
     return `
       <div class="screen-head">
         <h2 class="text-grad">Select Level</h2>
         <p>${store.clearedCount} of ${TOTAL_LEVELS} cleared · ⭐ ${store.totalStars} of ${TOTAL_LEVELS * 3} stars earned</p>
       </div>
-      <div class="scroll-y" style="flex:1;min-height:0">
-        <div class="level-grid">${cards}</div>
-      </div>
+      <div class="scroll-y" style="flex:1;min-height:0">${sections}</div>
     `;
   },
 
@@ -126,9 +162,18 @@ export default {
     el.addEventListener('click', onClick);
     cleanup.push(() => el.removeEventListener('click', onClick));
 
-    // Bring the level the player is up to into view on a long grid.
-    const current = el.querySelector('.level-card.current') || el.querySelector('.level-card.locked');
-    if (current) current.scrollIntoView({ block: 'nearest' });
+    // Bring the level the player is up to into view. scrollIntoView() walks
+    // every scrollable ancestor, which on a 70-tile grid also scrolled the page
+    // itself and dragged the sticky header out of place — so drive the one
+    // container directly and centre the tile in it.
+    const target = el.querySelector('.level-card.current') || el.querySelector('.level-card.locked');
+    const scroller = el.querySelector('.scroll-y');
+    if (target && scroller) {
+      const t = target.getBoundingClientRect();
+      const s = scroller.getBoundingClientRect();
+      const delta = (t.top - s.top) - (s.height - t.height) / 2;
+      scroller.scrollTop = Math.max(0, scroller.scrollTop + delta);
+    }
   },
 
   unmount() {
