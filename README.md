@@ -254,7 +254,7 @@ to ship; cues send to it in parallel, so the dry hit keeps its attack.
 | `powerup` | fallback for a power-up with no dedicated sound |
 | `tick` / `tock` | `countdown()` — alternating heartbeat under the last 10 seconds |
 | `star` | `starEarned(n)` — one chime per star, each a fourth above the last |
-| `unlock` | a level unlocked on a first clear |
+| `unlock` | reaching a new furthest level on a first clear |
 | `levelComplete(stars)` | level cleared: 4-note rising melody, or the 5-note `perfect()` flourish at three stars |
 | `gameOver()` | time ran out (3-note falling melody) |
 
@@ -290,7 +290,7 @@ stars. Every tile is live — there are no padlocks and no disabled tiles — so
 reads as cleared (green) or as the one you are up to (cyan, pulsing).
 
 **Win screen** reveals the stars, then time, moves and coins earned with the payout
-itemised line by line, the score and best combo, a "Level N unlocked" pill and a note when
+itemised line by line, the score and best combo, a "Level N reached" pill and a note when
 you have beaten your own record — then offers **Play Next Level**, Play Again, Level Select
 or Main Menu. Level 70 drops the next-level button and shows an "every level cleared" line
 instead.

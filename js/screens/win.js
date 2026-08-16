@@ -115,7 +115,7 @@ export default {
         ${won ? coinPanel(coins, params.purse) : ''}
 
         ${params.unlockedLevel
-          ? `<p class="result-unlock">🔓 Level ${params.unlockedLevel} unlocked</p>`
+          ? `<p class="result-unlock">🚩 Level ${params.unlockedLevel} reached — a new furthest point</p>`
           : ''}
         ${params.isNewStarRecord ? '<p class="result-record">★ New star record for this level!</p>' : ''}
         ${params.isNewTimeRecord ? `<p class="result-record">⏱ New best time — ${formatTime(timeUsed)}</p>` : ''}
