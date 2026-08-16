@@ -117,18 +117,25 @@ class SaveStore {
       { stars: 0, bestTime: null, bestMoves: null, cleared: false, clearCount: 0 };
   }
 
-  isUnlocked(id) { return Number(id) <= this.state.unlockedLevel; }
+  /**
+   * Every level is open. `unlockedLevel` is still tracked as *progress* — it is
+   * how far the player has climbed, and level select uses it to mark "you are
+   * here" — but it is not a permission, so nothing is withheld behind it.
+   */
+  isUnlocked(id) {
+    const n = Number(id);
+    return n >= 1 && n <= TOTAL_LEVELS;
+  }
 
   /**
-   * Full entry check for a level: progression *and* the coin balance gate.
-   * `requiredCoins` is a balance you must hold, not a fee that gets spent.
-   * @returns {{ok:boolean, reason:''|'locked'|'coins', requiredCoins:number}}
+   * Full entry check for a level. All 70 are playable in any order, so this
+   * only ever refuses an id that is not a level at all. The shape is kept so
+   * callers can keep reporting a reason rather than crashing on a bad id.
+   * @returns {{ok:boolean, reason:''|'unknown', requiredCoins:number}}
    */
   canPlay(id) {
-    const requiredCoins = getLevel(id).requiredCoins || 0;
-    if (!this.isUnlocked(id)) return { ok: false, reason: 'locked', requiredCoins };
-    if (this.state.coins < requiredCoins) return { ok: false, reason: 'coins', requiredCoins };
-    return { ok: true, reason: '', requiredCoins };
+    if (!this.isUnlocked(id)) return { ok: false, reason: 'unknown', requiredCoins: 0 };
+    return { ok: true, reason: '', requiredCoins: 0 };
   }
 
   get totalStars() {
