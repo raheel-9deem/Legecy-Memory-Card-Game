@@ -38,7 +38,7 @@ js/
     store-items.js      Card backs, store catalogue, power-up metadata
   screens/
     menu.js             Neon title, Play / Store / Settings, settings modal
-    level-select.js     70 levels in five difficulty bands: locks, gates, best time, stars
+    level-select.js     All 70 levels in five difficulty bands, none locked
     gameplay.js         Board rendering, driven entirely by engine events
     store.js            Tabbed shop: card backs, themes, power-ups, Coming Soon
     win.js              Result screen: star reveal, coin breakdown, next level
@@ -317,14 +317,15 @@ node tools/_build-win.mjs
 # Generic mirror — pass an absolute mirror path on any platform:
 node tools/_build-check.mjs js .mirror
 
-node tools/_engine-test.mjs "$PWD/.mirror"        # 235 headless engine assertions
+node tools/_engine-test.mjs "$PWD/.mirror"        # 240 headless engine assertions
+node tools/_all-levels-test.mjs "$PWD/.mirror"    #   9 every level dealt, entered and cleared
 node tools/_hint-test.mjs "$PWD/.mirror"          #  15 hint reveals-exactly-the-right-cards assertions
 node tools/_reveal-payload-test.mjs               #  16 pair/mismatch/unflip payload is 2 cards, never the board
 node tools/_powerup-coin-test.mjs                #  37 per-use coin-fee assertions
-node tools/_wiring-check.mjs .                    # 226 static wiring/CSS checks
+node tools/_wiring-check.mjs .                    # 231 static wiring/CSS checks
 ```
 
-529 assertions in total, and every runner exits non-zero on a single failure.
+548 assertions in total, and every runner exits non-zero on a single failure.
 
 The Windows mirror builder (`_build-win.mjs`) writes the `.mjs` copy into `./scratch-mmc`
 and takes no arguments; the generic `_build-check.mjs` takes source and destination. Either
