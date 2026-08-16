@@ -1,11 +1,15 @@
 /**
  * themes.js — Emoji symbol sets.
  *
- * Every set holds 24 unique symbols — exactly what the largest board (6×8,
- * 24 pairs) needs. This is a hard floor, not a comfort margin: GameBoard.build()
+ * Every set holds 32 unique symbols — exactly what the largest board (8×8,
+ * 32 pairs) needs. This is a hard floor, not a comfort margin: GameBoard.build()
  * cycles the list when a theme is short, which would silently deal two visually
  * identical pairs onto the same board. `spread` marks sets whose symbols are
  * harder to tell apart at a glance — used to bias the random picker.
+ *
+ * The last 8 of each set were added with the 8×8 tier (levels 81–100). They are
+ * listed on their own line per theme so the original 24 stay recognisable, but
+ * order carries no meaning: the deck shuffles the pool before slicing it.
  */
 
 export const THEMES = {
