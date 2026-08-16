@@ -232,11 +232,11 @@ ok(/TOTAL_LEVELS/.test(read(join(ROOT, 'js/screens/menu.js'))),
 ok(/function bands\(\)/.test(levelSelSrc), 'level select groups the list into difficulty bands');
 // Derived from level.difficulty, not from hard-coded id ranges: re-tiering a
 // level in core/levels.js has to move it between bands with no edit here.
-ok(!/\b(?:1|21|33|45|57)\s*(?:,|\.\.)\s*(?:20|32|44|56|70)\b/.test(levelSelSrc),
+ok(!/\b(?:1|21|33|45|57|71|81)\s*(?:,|\.\.)\s*(?:20|32|44|56|70|80|100)\b/.test(levelSelSrc),
   'the bands are not hard-coded id ranges');
 ok(/last\.difficulty === level\.difficulty/.test(levelSelSrc), 'consecutive same-difficulty levels share a band');
-const bandNames = [...levelsSrc.matchAll(/return\s+'(easy|medium|hard|expert|master)'/g)].map((m) => m[1]);
-ok(new Set(bandNames).size === 5, `difficultyFor covers five tiers (${[...new Set(bandNames)].join(', ')})`);
+const bandNames = [...levelsSrc.matchAll(/return\s+'(easy|medium|hard|expert|master|grandmaster)'/g)].map((m) => m[1]);
+ok(new Set(bandNames).size === 6, `difficultyFor covers six tiers (${[...new Set(bandNames)].join(', ')})`);
 for (const tier of new Set(bandNames)) {
   ok(new RegExp(`\\[data-difficulty=['"]${tier}['"]\\]`).test(css), `.level-band carries an accent for '${tier}'`);
   ok(new RegExp(`${tier}:\\s*\\{`).test(levelSelSrc), `'${tier}' has a band label`);
