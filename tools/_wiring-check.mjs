@@ -189,21 +189,33 @@ ok(/levelId\s*<\s*TOTAL_LEVELS/.test(storageSrc), 'and never unlocks past the la
 ok(/player:\s*\{[^}]*createdAt/.test(storageSrc), 'the save file carries a player record');
 ok(/bestTime/.test(levelSelSrc), 'level select shows the best time');
 
-// Every one of the 70 levels is playable from a fresh save. These are the
-// places that used to withhold one — a padlock tile, a coin-balance pill, a
-// disabled button, a refused click, a refusal inside the store — and none of
-// them may come back. Comments are stripped first because the modules explain
-// the removal using the very words being searched for.
+// The ladder is walked in order, and every place that enforces it has to keep
+// doing so: the tile that shows the padlock, the click that refuses, the entry
+// check on the board screen, and the next-level button on the win screen. A
+// coin gate is a different thing and must stay gone — the only currency is a
+// clear. Comments are stripped first because the modules discuss both.
 const bare = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 const levelSelBare = bare(levelSelSrc);
 const storageBare = bare(storageSrc);
-ok(!/level-lock|level-req/.test(levelSelBare), 'no level tile renders a padlock or a coin-gate pill');
-ok(!/aria-disabled/.test(levelSelBare), 'no level tile is rendered disabled');
-ok(!/canPlay|isUnlocked/.test(levelSelBare), 'level select does not gate the click on an entry check');
-ok(!/reason:\s*'(locked|coins)'/.test(storageBare), 'canPlay has no locked or too-poor refusal left');
-ok(/n\s*>=\s*1\s*&&\s*n\s*<=\s*TOTAL_LEVELS/.test(storageBare),
-  'isUnlocked is a range check across the whole ladder, not a progress check');
-ok(!/canPlay/.test(bare(winSrc)), 'the next-level button is not gated either');
+const gpBare = bare(gpSrc);
+ok(/level-lock/.test(levelSelBare), 'a locked level tile renders a padlock line');
+ok(/aria-disabled/.test(levelSelBare), 'and is marked aria-disabled for assistive tech');
+// `disabled` (the real attribute) would swallow the click, leaving the player
+// with a dead tile and no explanation — `aria-disabled` announces the state and
+// still lets the handler run.
+ok(!/(?<!aria-)\bdisabled\b/.test(levelSelBare), 'but never the real disabled attribute, which would swallow the click');
+ok(/canPlay|isUnlocked/.test(levelSelBare), 'level select gates the click on an entry check');
+ok(/locked-nudge/.test(levelSelBare) && /@keyframes\s+locked-nudge/.test(css),
+  'a refused click nudges the tile so the refusal is visible as well as audible');
+ok(/reason:\s*'locked'/.test(storageBare), 'canPlay refuses a level above the progress marker');
+ok(!/reason:\s*'coins'/.test(storageBare), 'and never refuses one for being too poor');
+ok(/n\s*<=\s*this\.state\.unlockedLevel/.test(storageBare),
+  'isUnlocked measures against the progress marker, not just the ladder length');
+ok(/_repairProgress/.test(storageBare) && /cleared/.test(storageBare),
+  'a loaded save is repaired from its clears, so re-locking never strips earned access');
+ok(/canPlay/.test(gpBare) && /replace:\s*true/.test(gpBare),
+  'the board screen refuses a locked level and bounces back to the list');
+ok(/isUnlocked/.test(bare(winSrc)), 'the next-level button checks the unlock before offering the jump');
 ok(/requiredCoins:\s*0/.test(levelsSrc) && !/function gates\(/.test(levelsSrc),
   'every level definition carries a zero coin gate');
 ok(/starDetail/.test(winSrc) && /starDetail/.test(gpSrc), 'the per-star detail reaches the win screen');
@@ -212,7 +224,7 @@ const levelCardBlock = css.replace(/\/\*[\s\S]*?\*\//g, '').match(/\.level-card\
 ok(!/aspect-ratio/.test(levelCardBlock) && /min-height/.test(levelCardBlock),
   '.level-card is no longer a fixed square (it carries four meta rows)');
 
-group('70 levels reach the UI');
+group('100 levels reach the UI');
 ok(/TOTAL_LEVELS\s*=\s*LEVELS\.length/.test(levelsSrc),
   'TOTAL_LEVELS is derived from the table, so adding a level needs no second edit');
 ok(/TOTAL_LEVELS/.test(read(join(ROOT, 'js/screens/menu.js'))),
