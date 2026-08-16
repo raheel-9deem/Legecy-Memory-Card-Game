@@ -131,7 +131,7 @@ for (const c of [
   'card-front', 'card-back', 'card-inner', 'card-face',
   'result-timeout', 'board-wrap', 'mismatch',
   // coin flight + level meta + win screen (star reveal, criteria, breakdown)
-  'coin-fly', 'catch', 'coins-pill', 'level-best',
+  'coin-fly', 'catch', 'coins-pill', 'level-best', 'level-lock', 'level-hint',
   'star-criteria', 'crit-mark', 'crit-text', 'crit-label', 'crit-detail',
   'coin-breakdown', 'coin-row', 'coin-row-label', 'coin-row-value',
   'result-meta', 'result-unlock', 'result-record',
