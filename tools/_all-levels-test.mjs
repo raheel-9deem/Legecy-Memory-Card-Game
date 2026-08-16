@@ -101,10 +101,10 @@ function playThrough(level, themeId, portrait = false) {
 }
 
 group(`all ${TOTAL_LEVELS} levels are dealt correctly`);
-ok(TOTAL_LEVELS === 70, `the ladder is 70 levels long (${TOTAL_LEVELS})`);
+ok(TOTAL_LEVELS === 100, `the ladder is 100 levels long (${TOTAL_LEVELS})`);
 ok(LEVELS.length === TOTAL_LEVELS, 'and the table holds one definition per level');
 ok(new Set(LEVELS.map((l) => l.id)).size === TOTAL_LEVELS, 'with no duplicate or missing id');
-ok(LEVELS.every((l, i) => l.id === i + 1), 'ids run 1..70 in order, with no gap to fall through');
+ok(LEVELS.every((l, i) => l.id === i + 1), 'ids run 1..100 in order, with no gap to fall through');
 
 const dealFaults = [];
 for (const level of LEVELS) {
