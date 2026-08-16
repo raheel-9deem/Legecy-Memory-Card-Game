@@ -137,30 +137,54 @@ export default {
       <div class="screen-head">
         <h2 class="text-grad">Select Level</h2>
         <p>${store.clearedCount} of ${TOTAL_LEVELS} cleared · ⭐ ${store.totalStars} of ${TOTAL_LEVELS * 3} stars earned</p>
+        <p class="level-hint">Clear a level to unlock the next one — you are on level ${store.currentLevel}</p>
       </div>
       <div class="scroll-y" style="flex:1;min-height:0">${sections}</div>
     `;
   },
 
   mount(el, params, router) {
-    header.setLevel(store.state.unlockedLevel);
+    header.setLevel(store.currentLevel);
 
     const onClick = (e) => {
       const card = e.target.closest('[data-level]');
       if (!card) return;
 
+      // A locked tile stays clickable on purpose: `disabled` would swallow the
+      // click and leave the player guessing why the level did nothing. Say what
+      // has to be cleared first instead, and nudge the tile so the refusal is
+      // visible as well as audible.
+      const levelId = Number(card.dataset.level);
+      const entry = store.canPlay(levelId);
+      if (!entry.ok) {
+        audio.play('error');
+        toast(
+          entry.reason === 'locked'
+            ? `Level ${levelId} is locked — clear level ${entry.requiredLevel} first`
+            : `Level ${levelId} does not exist`,
+          'error'
+        );
+        card.classList.remove('locked-nudge');
+        // Force a reflow so the animation restarts on a repeat click.
+        void card.offsetWidth;
+        card.classList.add('locked-nudge');
+        return;
+      }
+
       audio.play('click');
-      router.navigate('game', { levelId: Number(card.dataset.level) });
+      router.navigate('game', { levelId });
     };
 
     el.addEventListener('click', onClick);
     cleanup.push(() => el.removeEventListener('click', onClick));
 
     // Bring the level the player is up to into view. scrollIntoView() walks
-    // every scrollable ancestor, which on a 70-tile grid also scrolled the page
+    // every scrollable ancestor, which on a 100-tile grid also scrolled the page
     // itself and dragged the sticky header out of place — so drive the one
-    // container directly and centre the tile in it.
-    const target = el.querySelector('.level-card.current');
+    // container directly and centre the tile in it. Once the last level is
+    // cleared there is no "current" tile left, so fall back to the final clear.
+    const cleared = el.querySelectorAll('.level-card.completed');
+    const target = el.querySelector('.level-card.current') || cleared[cleared.length - 1];
     const scroller = el.querySelector('.scroll-y');
     if (target && scroller) {
       const t = target.getBoundingClientRect();

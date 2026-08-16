@@ -7,6 +7,7 @@
  */
 
 import { getLevel, hasNextLevel, TOTAL_LEVELS } from '../core/levels.js';
+import { store } from '../core/storage.js';
 import { coinBreakdown } from '../core/coins.js';
 import { header, formatTime } from '../ui/header.js';
 import { audio } from '../ui/audio.js';
@@ -82,7 +83,11 @@ export default {
         : `Level ${levelId} cleared with ${formatTime(Math.max(0, timeLimit - timeUsed))} to spare — ${3 - stars} star${3 - stars > 1 ? 's' : ''} still out there.`
       : `The clock beat you with ${missing} pair${missing === 1 ? '' : 's'} still hidden.`;
 
-    const nextUnlocked = won && hasNextLevel(levelId);
+    // A clear opens the next level, so after a win the button is there. It is
+    // still asked rather than assumed: a lost round opens nothing, and a replay
+    // of an old level must not offer a jump past the furthest clear.
+    const nextId = levelId + 1;
+    const nextUnlocked = won && hasNextLevel(levelId) && store.isUnlocked(nextId);
     const allDone = won && !hasNextLevel(levelId);
 
     return `

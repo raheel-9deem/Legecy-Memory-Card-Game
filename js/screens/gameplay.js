@@ -41,7 +41,7 @@ export default {
   header: { show: true, home: true, pause: true, timer: false, moves: true, level: true },
 
   render(params = {}) {
-    levelId = Number(params.levelId) || store.state.unlockedLevel || 1;
+    levelId = Number(params.levelId) || store.currentLevel;
     const level = getLevel(levelId);
 
     const powerupBtns = POWERUP_ORDER.map((key) => {
@@ -76,6 +76,24 @@ export default {
   },
 
   mount(el, params, router) {
+    // A locked level can still be asked for: a stale #/game hash, the back
+    // button after a reset, a hand-typed URL. Refuse it here rather than dealing
+    // a board that has not been earned — no board, no clock, no coins. The
+    // router is still mid-navigation on this tick, so the bounce is deferred
+    // (same reason as the win screen's direct-hit guard).
+    const entry = store.canPlay(levelId);
+    if (!entry.ok) {
+      toast(
+        entry.reason === 'locked'
+          ? `Level ${levelId} is locked — clear level ${entry.requiredLevel} first`
+          : `Level ${levelId} does not exist`,
+        'error'
+      );
+      audio.play('error');
+      setTimeout(() => router.navigate('levels', {}, { replace: true }), 0);
+      return;
+    }
+
     routerRef = router;
     mounted = true;
     boardEl = el.querySelector('#game-board');
