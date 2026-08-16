@@ -1392,6 +1392,10 @@ button:disabled, .btn-primary:disabled, .btn-secondary:disabled, .btn-gold:disab
   .menu-tagline { letter-spacing: 0.22em; }
 
   .level-grid { grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 10px; }
+  .level-band-head { margin: 16px 2px 8px; padding-left: 9px; gap: 4px 8px; }
+  .level-band-head h3 { font-size: 0.82rem; }
+  /* The blurb is the first thing to go — the label and range carry the meaning. */
+  .level-band-blurb { display: none; }
   .level-card { min-height: 126px; padding: 22px 6px 12px; gap: 4px; }
   .level-size { font-size: 0.58rem; }
   .level-best { font-size: 0.6rem; }
