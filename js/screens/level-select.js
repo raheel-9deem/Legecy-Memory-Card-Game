@@ -1,13 +1,16 @@
 /**
- * level-select.js — Scrollable grid of all 70 levels, grouped by difficulty.
+ * level-select.js — Scrollable grid of all 100 levels, grouped by difficulty.
  *
- * Every card carries the level number, the player's best clear time and the
- * stars earned. All 70 levels are open from a fresh save and playable in any
- * order — nothing is locked and nothing is gated on a coin balance. What the
- * grid still tracks is *progress*: which levels are cleared, and how far the
- * player has climbed (the "current" tile, which the view scrolls to).
+ * The ladder is walked in order: level 1 is open on a fresh save, and clearing a
+ * level opens the next one. A locked tile is still drawn — the number, the board
+ * size and the difficulty band are the whole point of looking ahead — but it
+ * carries a padlock, is marked `aria-disabled`, and answers a click with the
+ * level that has to be cleared first rather than going silently dead.
  *
- * The tiles are banded rather than poured into one 70-cell grid: at that length
+ * Cleared tiles stay open forever, so any earlier level can be replayed for a
+ * better time or the star that was missed.
+ *
+ * The tiles are banded rather than poured into one 100-cell grid: at that length
  * an unbroken run of numbers gives the player nothing to navigate by, and the
  * jump in board size between bands is the most useful landmark there is.
  */
@@ -17,26 +20,35 @@ import { LEVELS, TOTAL_LEVELS } from '../core/levels.js';
 import { getTheme } from '../data/themes.js';
 import { header, formatTime } from '../ui/header.js';
 import { audio } from '../ui/audio.js';
+import { toast } from '../ui/toast.js';
 
 /** Human label per difficulty band. Keys match level.difficulty exactly. */
 const BAND_META = {
-  easy:   { label: 'Warm-up',   blurb: 'Small boards, generous clocks' },
-  medium: { label: 'Steady',    blurb: 'More pairs, less slack' },
-  hard:   { label: 'Sharp',     blurb: 'The clock starts to bite' },
-  expert: { label: 'Expert',    blurb: 'Big boards and lookalike symbol sets' },
-  master: { label: 'Master',    blurb: '40+ cards — the deep end' },
+  easy:        { label: 'Warm-up',     blurb: 'Small boards, generous clocks' },
+  medium:      { label: 'Steady',      blurb: 'More pairs, less slack' },
+  hard:        { label: 'Sharp',       blurb: 'The clock starts to bite' },
+  expert:      { label: 'Expert',      blurb: 'Big boards and lookalike symbol sets' },
+  master:      { label: 'Master',      blurb: '40+ cards — the deep end' },
+  grandmaster: { label: 'Grandmaster', blurb: '64 cards, 32 pairs — the summit' },
 };
 
 let cleanup = [];
 
-/** One level tile. Every tile is playable, so none of them render disabled. */
+/**
+ * One level tile: cleared, current, or locked behind the level below it.
+ * The lock line names that level, so the tile explains itself before it is
+ * even clicked.
+ */
 function renderCard(level, index) {
   const rec = store.getLevelRecord(level.id);
+  const entry = store.canPlay(level.id);
+  const locked = !entry.ok;
   const isCurrent = level.id === store.state.unlockedLevel && !rec.cleared;
 
   const classes = ['level-card'];
   if (rec.cleared) classes.push('completed');
   if (isCurrent) classes.push('current');
+  if (locked) classes.push('locked');
 
   const stars = [1, 2, 3]
     .map((n) => `<span class="star ${rec.stars >= n ? 'earned' : ''}">★</span>`)
@@ -46,22 +58,31 @@ function renderCard(level, index) {
     ? `<span class="level-best">⏱ ${formatTime(rec.bestTime)}</span>`
     : '<span class="level-best empty">⏱ —:—</span>';
 
+  const footer = locked
+    ? `<span class="level-lock">🔒 Clear ${entry.requiredLevel}</span>`
+    : best;
+
   const label = [
     `Level ${level.id}`,
     `${level.pairs} pairs`,
-    rec.cleared ? `${rec.stars} of 3 stars, best time ${formatTime(rec.bestTime)}` : 'not cleared yet',
+    locked
+      ? `locked — clear level ${entry.requiredLevel} to unlock`
+      : rec.cleared
+        ? `${rec.stars} of 3 stars, best time ${formatTime(rec.bestTime)}`
+        : 'unlocked, not cleared yet',
   ].join(', ');
 
   return `
     <button class="${classes.join(' ')}"
             data-level="${level.id}"
+            ${locked ? 'aria-disabled="true"' : ''}
             style="animation-delay:${Math.min(index * 35, 420)}ms"
-            title="${getTheme(level.theme).name} · ${formatTime(level.timeLimit)}"
+            title="${locked ? `Locked — clear level ${entry.requiredLevel} first` : `${getTheme(level.theme).name} · ${formatTime(level.timeLimit)}`}"
             aria-label="${label}">
       <span class="difficulty-tag ${level.difficulty}">${level.difficulty}</span>
-      <span class="level-num">${level.id}</span>
+      <span class="level-num">${locked ? '🔒' : level.id}</span>
       <span class="level-size">${level.label} · ${formatTime(level.timeLimit)}</span>
-      ${best}
+      ${footer}
       <span class="level-stars">${stars}</span>
     </button>
   `;

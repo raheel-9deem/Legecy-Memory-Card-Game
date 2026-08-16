@@ -51,6 +51,13 @@ const TIERS = [
   { levels: [33, 44], rows: 6, cols: 6, times: ramp(168, 12) },
   { levels: [45, 56], rows: 5, cols: 8, times: ramp(190, 12) },
   { levels: [57, 70], rows: 6, cols: 8, times: ramp(230, 14) },
+
+  // The 30 levels past 70. These are the only boards that outgrow 24 pairs, so
+  // they are also the reason every theme carries 32 symbols (see data/themes.js).
+  // Their steps are gentler than the tiers below — at 28 and 32 pairs a 6s drop
+  // per level would cross the 5s-per-pair floor long before the tier ended.
+  { levels: [71, 80],  rows: 7, cols: 8, times: ramp(210, 10, 5) },
+  { levels: [81, 100], rows: 8, cols: 8, times: ramp(256, 20, 4) },
 ];
 
 function difficultyFor(id) {
@@ -58,7 +65,8 @@ function difficultyFor(id) {
   if (id <= 12) return 'medium';
   if (id <= 18) return 'hard';
   if (id <= 44) return 'expert';
-  return 'master';
+  if (id <= 80) return 'master';
+  return 'grandmaster';
 }
 
 /**
@@ -83,6 +91,12 @@ const THEME_ROTATION = [
   'shapes', 'nature', 'weather', 'flags', 'transport', 'tech', 'music', 'shapes', 'flags', 'weather',
   // 61–70
   'tech', 'nature', 'shapes', 'music', 'flags', 'transport', 'weather', 'shapes', 'tech', 'flags',
+  // 71–80 — the 28-pair tier.
+  'shapes', 'flags', 'tech', 'weather', 'music', 'shapes', 'flags', 'nature', 'tech', 'shapes',
+  // 81–90 — the 32-pair tier opens.
+  'flags', 'shapes', 'weather', 'tech', 'music', 'flags', 'shapes', 'transport', 'nature', 'flags',
+  // 91–100 — the run-in, almost entirely lookalike sets.
+  'shapes', 'tech', 'flags', 'weather', 'music', 'shapes', 'flags', 'tech', 'shapes', 'flags',
 ];
 
 export const LEVELS = TIERS.flatMap((tier) => {
@@ -109,7 +123,7 @@ export const LEVELS = TIERS.flatMap((tier) => {
 export const TOTAL_LEVELS = LEVELS.length;
 
 /**
- * id → level. Level select builds 70 tiles and asks storage.canPlay() for each,
+ * id → level. Level select builds 100 tiles and asks storage.canPlay() for each,
  * so a linear scan per lookup turned the grid render quadratic. A Map keeps it
  * flat.
  */

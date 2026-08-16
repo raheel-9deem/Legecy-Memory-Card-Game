@@ -59,6 +59,8 @@ class SaveStore {
       this.state = defaults();
     }
 
+    this._repairProgress();
+
     // Stamp the player record on first run and on every session start.
     const now = new Date().toISOString();
     if (!this.state.player.createdAt) this.state.player.createdAt = now;
@@ -66,6 +68,31 @@ class SaveStore {
     this.save();
 
     return this.state;
+  }
+
+  /**
+   * Reconcile the unlock marker with the cleared levels on disk.
+   *
+   * Two saves need this. One was written while every level was open, so it can
+   * hold clears far above its `unlockedLevel` — re-locking those would take
+   * levels away from a player who had already beaten them. The other is simply
+   * corrupt (hand-edited, or a failed write): a missing, non-numeric or
+   * out-of-range marker would otherwise lock level 1 as well.
+   *
+   * The rule is "one past the furthest clear, and never below 1 or above the
+   * last level", so it can only ever hand back access, never remove it.
+   */
+  _repairProgress() {
+    const cleared = Object.entries(this.state.levels)
+      .filter(([, rec]) => rec && rec.cleared)
+      .map(([id]) => Number(id))
+      .filter((id) => Number.isInteger(id) && id >= 1 && id <= TOTAL_LEVELS);
+
+    const earnedFloor = cleared.length ? Math.min(Math.max(...cleared) + 1, TOTAL_LEVELS) : 1;
+    const stored = Number(this.state.unlockedLevel);
+    const safe = Number.isInteger(stored) ? Math.min(Math.max(stored, 1), TOTAL_LEVELS) : 1;
+
+    this.state.unlockedLevel = Math.max(safe, earnedFloor);
   }
 
   save() {
@@ -118,24 +145,42 @@ class SaveStore {
   }
 
   /**
-   * Every level is open. `unlockedLevel` is still tracked as *progress* — it is
-   * how far the player has climbed, and level select uses it to mark "you are
-   * here" — but it is not a permission, so nothing is withheld behind it.
+   * Is this level open for play?
+   *
+   * `unlockedLevel` is the furthest level the player has reached, and it *is* a
+   * permission: level 1 on a fresh save, and one more with every first clear.
+   * Everything above it is locked, so the ladder is walked in order.
    */
   isUnlocked(id) {
     const n = Number(id);
-    return n >= 1 && n <= TOTAL_LEVELS;
+    return Number.isInteger(n) && n >= 1 && n <= TOTAL_LEVELS && n <= this.state.unlockedLevel;
   }
 
   /**
-   * Full entry check for a level. All 70 are playable in any order, so this
-   * only ever refuses an id that is not a level at all. The shape is kept so
-   * callers can keep reporting a reason rather than crashing on a bad id.
-   * @returns {{ok:boolean, reason:''|'unknown', requiredCoins:number}}
+   * Full entry check for a level.
+   *
+   * Refusals carry the reason so the caller can explain it rather than just
+   * going dead: `unknown` for an id that is not a level at all, `locked` for a
+   * real level the player has not climbed to yet. `requiredLevel` is the level
+   * that has to be cleared to open it — the one immediately below.
+   *
+   * @returns {{ok:boolean, reason:''|'unknown'|'locked', requiredLevel:number,
+   *            requiredCoins:number}}
    */
   canPlay(id) {
-    if (!this.isUnlocked(id)) return { ok: false, reason: 'unknown', requiredCoins: 0 };
-    return { ok: true, reason: '', requiredCoins: 0 };
+    const n = Number(id);
+    if (!Number.isInteger(n) || n < 1 || n > TOTAL_LEVELS) {
+      return { ok: false, reason: 'unknown', requiredLevel: 0, requiredCoins: 0 };
+    }
+    if (n > this.state.unlockedLevel) {
+      return { ok: false, reason: 'locked', requiredLevel: n - 1, requiredCoins: 0 };
+    }
+    return { ok: true, reason: '', requiredLevel: 0, requiredCoins: 0 };
+  }
+
+  /** The furthest level open for play — where "Continue" should drop the player. */
+  get currentLevel() {
+    return Math.min(Math.max(1, Number(this.state.unlockedLevel) || 1), TOTAL_LEVELS);
   }
 
   get totalStars() {
