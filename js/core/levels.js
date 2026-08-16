@@ -1,5 +1,5 @@
 /**
- * levels.js — 70 level definitions plus progression maths.
+ * levels.js — 100 level definitions plus progression maths.
  *
  * Grid tiers (rows × cols):
  *    1–3   2×2  →  2 pairs
@@ -12,19 +12,21 @@
  *   33–44  6×6  → 18 pairs
  *   45–56  5×8  → 20 pairs
  *   57–70  6×8  → 24 pairs
+ *   71–80  7×8  → 28 pairs
+ *   81–100 8×8  → 32 pairs
  *
  * The ladder past level 20 keeps climbing rather than revisiting a smaller
- * board: every new tier holds more pairs than the 15 of levels 19–20.
+ * board: every new tier holds more pairs than the one before it.
  *
  * `time` tightens with every level inside a tier, then resets upward when
- * the grid grows — a 24-pair board cannot be cleared in a 2-pair board's
+ * the grid grows — a 32-pair board cannot be cleared in a 2-pair board's
  * clock, so the squeeze is per tier rather than strictly monotonic. Every
  * level still allows at least 5 seconds per pair.
  *
- * Every level is open from the first launch. `requiredCoins` is kept on the
- * level shape as a zero so the win screen and level select can keep reading
- * it, but nothing charges or withholds: all 70 levels are playable in any
- * order, and coins are spent in the store instead of at the door.
+ * Only level 1 is open on a fresh save. Clearing a level unlocks the next one
+ * and nothing else, so the ladder is walked in order — see storage.canPlay().
+ * `requiredCoins` stays on the level shape as a zero: entry is earned by
+ * clearing the level before it, never bought, and coins are spent in the store.
  */
 
 import { randomThemeId, THEME_IDS } from '../data/themes.js';
