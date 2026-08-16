@@ -120,12 +120,31 @@ for (const level of LEVELS) {
 }
 ok(dealFaults.length === 0, `every level has an even grid, a matching pair count, enough symbols in every theme and 5s+ per pair${dealFaults.length ? ' — ' + dealFaults.slice(0, 4).join('; ') : ''}`);
 
-group('every level can be entered');
+group('the ladder opens one level at a time');
 store.load();
 store.reset();
 store.state.coins = 0;
-const barred = LEVELS.filter((l) => !store.canPlay(l.id).ok);
-ok(barred.length === 0, `nothing refuses entry on a fresh, broke save (${barred.map((l) => l.id).join(',') || 'none'})`);
+const open = LEVELS.filter((l) => store.canPlay(l.id).ok).map((l) => l.id);
+ok(open.length === 1 && open[0] === 1,
+  `a fresh save opens level 1 and nothing else (${open.join(',') || 'none'})`);
+// Coins are not a gate — a full purse must not buy a way past the ladder.
+store.state.coins = 999999;
+ok(!store.canPlay(2).ok, 'and no amount of coins opens level 2 early');
+store.state.coins = 0;
+// Walk the whole ladder the way a player does: each clear opens exactly one more.
+const walkFaults = [];
+for (const level of LEVELS) {
+  if (!store.canPlay(level.id).ok) walkFaults.push(`L${level.id} was still locked when it was that level's turn`);
+  store.recordWin(level.id, { stars: 3, time: 10, moves: level.pairs });
+  const next = level.id + 1;
+  if (next <= TOTAL_LEVELS && !store.canPlay(next).ok) walkFaults.push(`clearing L${level.id} did not open L${next}`);
+  if (next + 1 <= TOTAL_LEVELS && store.canPlay(next + 1).ok) walkFaults.push(`clearing L${level.id} opened L${next + 1} too`);
+}
+ok(walkFaults.length === 0,
+  `every clear opens exactly the next level, all the way to ${TOTAL_LEVELS}${walkFaults.length ? ' — ' + walkFaults.slice(0, 4).join('; ') : ''}`);
+ok(LEVELS.every((l) => store.canPlay(l.id).ok), 'and a fully cleared save can replay any level');
+store.reset();
+ok(store.canPlay(1).ok && !store.canPlay(2).ok, 'a reset puts the ladder back to level 1');
 
 group('every level can be played to a win');
 // Each level is played twice: on its own default theme on a desktop-shaped
@@ -173,8 +192,8 @@ ok(transposed === wide,
 // the half-time star, that level is mis-tuned rather than broken.
 ok(starTotals[3] === LEVELS.length * 2,
   `a flawless clear scores 3 stars on every level (3★ ${starTotals[3]}, 2★ ${starTotals[2] || 0}, 1★ ${starTotals[1] || 0})`);
-ok(calculateStars({ pairs: 24, moves: 24, timeLeft: 200, timeLimit: 230 }) === 3,
-  'and the star maths agrees on the largest board');
+ok(calculateStars({ pairs: 32, moves: 32, timeLeft: 130, timeLimit: 180 }) === 3,
+  'and the star maths agrees on the largest board (32 pairs)');
 
 console.log(`\n${pass} passed, ${failures.length} failed`);
 failures.forEach((f) => console.log('  - ' + f));
