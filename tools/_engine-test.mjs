@@ -20,7 +20,7 @@ globalThis.localStorage = {
 const { LEVELS, TOTAL_LEVELS, getLevel, hasNextLevel, calculateStars, starCriteria, themeForLevel } =
   await mod('core/levels.mjs');
 const { THEMES, THEME_IDS, getTheme, randomThemeId } = await mod('data/themes.mjs');
-const { GameManager, GAME_STATE, Card, GameBoard } = await mod('core/game.mjs');
+const { GameManager, GAME_STATE, Card, GameBoard, HARD_MODE_TIME } = await mod('core/game.mjs');
 const { EVENTS, bus } = await mod('core/events.mjs');
 const { STORE_ITEMS, STORE_TABS, COMING_SOON, getStoreItem } = await mod('data/store-items.mjs');
 const { store } = await mod('core/storage.mjs');
@@ -525,6 +525,147 @@ ok(store.getSetting('notifyUpdates') === false, 'the notify preference starts of
 store.setSetting('notifyUpdates', true);
 store.load();
 ok(store.getSetting('notifyUpdates') === true, 'and survives a reload');
+
+group('hard mode is a property of the round, not the caller');
+const hm = new GameManager();
+hm.init({ levelId: 10, themeId: 'fruits', hardMode: true });
+const hmLevel = getLevel(10);
+const expectBudget = Math.max(10, Math.round(hmLevel.timeLimit * HARD_MODE_TIME));
+ok(hm.timeBudget === expectBudget,
+  `hard mode squeezes the clock to ${Math.round(HARD_MODE_TIME * 100)}% (${hmLevel.timeLimit}s -> ${hm.timeBudget}s)`);
+ok(hm.timeLeft === hm.timeBudget, 'the round starts on the squeezed budget');
+ok(hm.snapshot().timeLimit === hm.timeBudget,
+  'the snapshot reports the clock the player got, not the level definition');
+ok(hm.snapshot().hardMode === true, 'and flags the round as hard mode');
+// Every screen measures "time to spare" and star 2 against snapshot().timeLimit,
+// so a soft round must still report the paper budget untouched.
+const soft = new GameManager();
+soft.init({ levelId: 10, themeId: 'fruits' });
+ok(soft.timeBudget === hmLevel.timeLimit, 'a normal round runs on the level budget');
+ok(soft.snapshot().hardMode === false, 'and is not flagged');
+soft.destroy();
+hm.destroy();
+
+// The floor matters at the shallow end: 75% of a 30s level is 22s, but nothing
+// may ever hand out a clock too short to finish the board on.
+let budgetsOk = true;
+for (const level of LEVELS) {
+  const probe = new GameManager();
+  probe.init({ levelId: level.id, themeId: 'fruits', hardMode: true });
+  if (probe.timeBudget < 10 || probe.timeBudget > level.timeLimit) budgetsOk = false;
+  probe.destroy();
+}
+ok(budgetsOk, `all ${TOTAL_LEVELS} levels keep a hard-mode clock between 10s and their own budget`);
+
+group('the hard-mode bonus is inside the payout, not bolted on after');
+const purseSoft = calculateCoins({ timeLeft: 30, comboMatches: 4, won: true });
+const purseHard = calculateCoins({ timeLeft: 30, comboMatches: 4, won: true, hardMode: true });
+ok(purseSoft.bonus === 0, 'a normal round has no bonus line');
+ok(purseHard.bonus > 0, 'a hard round does');
+ok(purseHard.total === purseSoft.total + purseHard.bonus,
+  'and the bonus is the only difference between the two totals');
+ok(purseHard.total === Math.round(purseSoft.total * COIN_RULES.hardModeMultiplier),
+  `the multiplier applies to the whole payout (${purseSoft.total} -> ${purseHard.total})`);
+// This is the bug the move fixed: the win screen itemises the purse, so the rows
+// have to add up to the headline figure the player was actually paid.
+const sum = (rows) => rows.reduce((n, r) => n + r.value, 0);
+ok(sum(coinBreakdown(purseHard)) === purseHard.total,
+  `the itemised rows sum to the hard-mode total (${sum(coinBreakdown(purseHard))} = ${purseHard.total})`);
+ok(sum(coinBreakdown(purseSoft)) === purseSoft.total, 'and to the normal total');
+ok(coinBreakdown(purseHard).some((r) => /hard mode/i.test(r.label)), 'the bonus gets its own row');
+ok(!coinBreakdown(purseSoft).some((r) => /hard mode/i.test(r.label)), 'which is absent otherwise');
+ok(calculateCoins({ timeLeft: 40, comboMatches: 9, won: false, hardMode: true }).total === 0,
+  'a loss pays nothing, hard mode or not');
+
+group('a pair matched on the final tick is still a clear');
+const gTick = new GameManager();
+gTick.init({ levelId: 1, themeId: 'fruits' });   // 2 pairs, the shortest round
+gTick.startGame();
+let tickEnd = null;
+gTick.on(EVENTS.GAME_OVER, (e) => { tickEnd = e.detail; });
+const tickPairs = pairsOf(gTick.board);
+gTick.flipCard(tickPairs[0][0].id);
+gTick.flipCard(tickPairs[0][1].id);
+await wait(450);
+// Land the last pair, then expire the clock inside the match-resolve window.
+// _resolveMatch holds the board before it checks for completion, so the tick
+// gets there first — it has to ask the board rather than assume a loss.
+gTick.timeLeft = 1;
+gTick.flipCard(tickPairs[1][0].id);
+gTick.flipCard(tickPairs[1][1].id);
+gTick._tick();
+ok(tickEnd && tickEnd.won === true, 'the round is won, not lost, when the clock and the last pair collide');
+ok(gTick.state === GAME_STATE.WON, 'and the engine settles in the WON state');
+await wait(450);
+ok(tickEnd && tickEnd.result === 'won', 'the deferred completion check does not overwrite it');
+gTick.destroy();
+// The inverse: an unfinished board on a zero clock is still a loss.
+const gLose = new GameManager();
+gLose.init({ levelId: 7, themeId: 'fruits' });
+gLose.startGame();
+let loseEnd = null;
+gLose.on(EVENTS.GAME_OVER, (e) => { loseEnd = e.detail; });
+gLose.timeLeft = 1;
+gLose._tick();
+ok(loseEnd && loseEnd.won === false, 'an incomplete board on a dead clock loses');
+gLose.destroy();
+
+group('power-ups refuse to fire while the board is locked');
+const gLock = new GameManager();
+gLock.init({ levelId: 9, themeId: 'fruits' });
+gLock.startGame();
+const lockPairs = pairsOf(gLock.board);
+gLock.flipCard(lockPairs[0][0].id);
+gLock.flipCard(lockPairs[0][1].id);
+ok(gLock.locked === true, 'a match locks the board for its animation');
+// Both of these hold references to positions that an unflip timer is about to
+// read back, so neither may run mid-resolve.
+ok(gLock.usePowerup('shuffle') === false, 'shuffle is refused while locked');
+ok(gLock.usePowerup('hint') === false, 'hint is refused while locked');
+const orderBefore = gLock.board.cards.map((c) => c.id).join(',');
+ok(gLock.board.cards.map((c) => c.id).join(',') === orderBefore, 'and the deck is left alone');
+await wait(450);
+ok(gLock.usePowerup('shuffle') === true, 'both work again once the lock releases');
+// Nothing fires after the round is over either — the gameplay screen only docks
+// a unit when the engine says yes, so a false here is what keeps the stock honest.
+gLock.gameOver('lost');
+ok(gLock.usePowerup('hint') === false && gLock.usePowerup('freeze') === false,
+  'and neither fires once the round has ended');
+gLock.destroy();
+
+group('the coin gate holds on every route into a level');
+const gated = LEVELS.find((l) => (l.requiredCoins || 0) > 0);
+ok(!!gated, `at least one level gates on a coin balance (level ${gated && gated.id})`);
+store.state.unlockedLevel = TOTAL_LEVELS;
+store.state.coins = gated.requiredCoins - 1;
+const short = store.canPlay(gated.id);
+ok(short.ok === false && short.reason === 'coins',
+  `level ${gated.id} is refused one coin short of its gate`);
+ok(short.requiredCoins === gated.requiredCoins,
+  'and reports what it wants, so the button can say so instead of looking dead');
+store.state.coins = gated.requiredCoins;
+ok(store.canPlay(gated.id).ok === true, 'and opens on the exact balance');
+// The gate is a balance check, not a toll: entering must not spend anything.
+ok(store.state.coins === gated.requiredCoins, 'playing a gated level spends nothing');
+store.state.unlockedLevel = 1;
+ok(store.canPlay(TOTAL_LEVELS).reason === 'locked',
+  'a locked level reports "locked" first, whatever the balance');
+
+group('audio settings survive an old save file');
+// `volume` did not exist when v2 saves were first written. A missing key must
+// read as full volume — defaulting to 0 would ship a silent game to anyone who
+// had played before the slider existed.
+memStore.set(SAVE_KEY, JSON.stringify({ coins: 5, settings: { sound: true } }));
+store.load();
+ok(store.getSetting('volume') === 1, 'a save file with no volume key reads as full volume');
+ok(store.getSetting('sound') === true, 'and keeps the settings it did carry');
+store.setSetting('volume', 0.4);
+store.load();
+ok(store.getSetting('volume') === 0.4, 'a chosen volume persists across a reload');
+store.setSetting('volume', 0);
+store.load();
+ok(store.getSetting('volume') === 0,
+  'and zero survives too — it must not be mistaken for a missing value');
 
 console.log(`\n${pass} passed, ${failures.length} failed`);
 if (failures.length) {
