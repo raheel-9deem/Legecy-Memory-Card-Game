@@ -196,7 +196,37 @@ const levelCardBlock = css.replace(/\/\*[\s\S]*?\*\//g, '').match(/\.level-card\
 ok(!/aspect-ratio/.test(levelCardBlock) && /min-height/.test(levelCardBlock),
   '.level-card is no longer a fixed square (it carries four meta rows)');
 
-group('coming-soon teasers are inert');
+group('70 levels reach the UI');
+ok(/TOTAL_LEVELS\s*=\s*LEVELS\.length/.test(levelsSrc),
+  'TOTAL_LEVELS is derived from the table, so adding a level needs no second edit');
+ok(/TOTAL_LEVELS/.test(read(join(ROOT, 'js/screens/menu.js'))),
+  'the menu counter reads the real total rather than a hard-coded 20');
+ok(/function bands\(\)/.test(levelSelSrc), 'level select groups the list into difficulty bands');
+// Derived from level.difficulty, not from hard-coded id ranges: re-tiering a
+// level in core/levels.js has to move it between bands with no edit here.
+ok(!/\b(?:1|21|33|45|57)\s*(?:,|\.\.)\s*(?:20|32|44|56|70)\b/.test(levelSelSrc),
+  'the bands are not hard-coded id ranges');
+ok(/last\.difficulty === level\.difficulty/.test(levelSelSrc), 'consecutive same-difficulty levels share a band');
+const bandNames = [...levelsSrc.matchAll(/return\s+'(easy|medium|hard|expert|master)'/g)].map((m) => m[1]);
+ok(new Set(bandNames).size === 5, `difficultyFor covers five tiers (${[...new Set(bandNames)].join(', ')})`);
+for (const tier of new Set(bandNames)) {
+  ok(new RegExp(`\\[data-difficulty=['"]${tier}['"]\\]`).test(css), `.level-band carries an accent for '${tier}'`);
+  ok(new RegExp(`${tier}:\\s*\\{`).test(levelSelSrc), `'${tier}' has a band label`);
+}
+// A 70-tile grid scrolls, and scrollIntoView() walks every scrollable ancestor —
+// which dragged the sticky header off-screen. Drive the one container instead.
+// Strip comments first: the note in level-select.js names the method it avoids.
+const levelSelCode = levelSelSrc.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+ok(!/scrollIntoView/.test(levelSelCode), 'the "you are here" scroll does not use scrollIntoView');
+ok(/scrollTop/.test(levelSelCode), 'it sets scrollTop on the level container directly');
+// Five bands means the difficulty tag is the only thing separating an expert
+// board from a master one, so the mobile query may shrink it but not hide it.
+const mobileQuery = css.match(/@media[^{]*620px[^{]*\{[\s\S]*?\n\s*\}\s*\n\s*(?:@media|\/\*|$)/)?.[0] || '';
+ok(mobileQuery.length > 0, 'the 620px mobile query is present');
+ok(!/\.difficulty-tag\s*\{[^}]*display:\s*none/.test(mobileQuery),
+  'the difficulty tag is not hidden on small screens');
+
+
 const itemsSrc = read(join(ROOT, 'js/data/store-items.js'));
 const storeScreenSrc = read(join(ROOT, 'js/screens/store.js'));
 const soonIds = [...itemsSrc.matchAll(/id:\s*'(soon-[a-z-]+)'/g)].map((m) => m[1]);
