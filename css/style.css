@@ -1399,7 +1399,6 @@ button:disabled, .btn-primary:disabled, .btn-secondary:disabled, .btn-gold:disab
   .level-card { min-height: 126px; padding: 22px 6px 12px; gap: 4px; }
   .level-size { font-size: 0.58rem; }
   .level-best { font-size: 0.6rem; }
-  .level-req { top: 6px; left: 6px; padding: 2px 5px; font-size: 0.52rem; }
   /* 70 levels span five difficulty bands, so this tag is the only thing telling
      an expert board from a master one. `display: none` threw that away; shrink it
      to a colour chip instead. The text stays in the DOM for screen readers. */

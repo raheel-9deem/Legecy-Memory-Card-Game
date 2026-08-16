@@ -100,13 +100,17 @@ The four tiers past level 20 only ever climb: each holds more pairs than the 15 
 19–20, so the ladder never revisits a smaller board. Their clocks come from `ramp(from,
 count)` — one budget per level, six seconds off each step — rather than being spelled out.
 
-Each level also carries a `requiredCoins` **balance gate** — a minimum you must be
-holding to enter, never spent — and a fallback theme used when no random one is drawn.
-Levels 1–20 gate from 0 up to 🪙1000; past that the curve is a steady 60 coins per level,
-🪙1100 at level 21 rising to 🪙4040 at level 70. A single clear on those boards pays several
-times the 60-coin step, so the gate never turns into a grind. Grids re-orient to portrait
-on phones so cards stay large, and the 24-pair boards scroll inside the board area rather
-than shrinking their cards past the point of being readable.
+**Every level is open from the first launch.** Nothing is locked behind the level before it
+and nothing asks for a coin balance at the door, so all 70 are playable in any order from a
+brand-new save with 🪙0. Coins are spent in the store and on power-up fees instead. Each
+level definition still carries `requiredCoins`, pinned at `0`, plus a fallback theme used
+when no random one is drawn. Grids re-orient to portrait on phones so cards stay large, and
+the 24-pair boards scroll inside the board area rather than shrinking their cards past the
+point of being readable.
+
+Progress is still *tracked* — `unlockedLevel` records how far you have climbed, which is
+what level select marks as "you are here" and scrolls to — it just no longer decides what
+you are allowed to play.
 
 ## Cards and matching
 
@@ -270,27 +274,26 @@ audio context from inside the click gesture.
 
 ## Progress
 
-Clearing a level unlocks the next one and writes the run to `localStorage` under
+Clearing a level advances the progress marker and writes the run to `localStorage` under
 `memory-master:save:v2` — one save file holding the player record (`createdAt`,
 `lastPlayed`, games played, best combo), the coin balance and lifetime earnings, per-level
 best time / best stars / clear count, purchases and settings. Best records only ever
-improve; a weaker replay leaves them alone.
+improve; a weaker replay leaves them alone, and clearing an earlier level never drags the
+marker backwards.
 
 **Level select** groups all 70 into five difficulty bands — Warm-up, Steady, Sharp, Expert
 and Master — each with its own heading, level range, count and accent colour, and scrolls to
 where you are up to. The bands are derived from each level's own `difficulty`, not from
 hard-coded id ranges, so re-tiering a level in `core/levels.js` moves it between bands with
-no second edit. Each card carries its number, grid size, difficulty, the coin balance the
-level gates on (red when you are short), your best time and your stars. Locked levels are
-greyed, desaturated and show a padlock.
+no second edit. Each card carries its number, grid size, difficulty, your best time and your
+stars. Every tile is live — there are no padlocks and no disabled tiles — so a tile only ever
+reads as cleared (green) or as the one you are up to (cyan, pulsing).
 
 **Win screen** reveals the stars, then time, moves and coins earned with the payout
 itemised line by line, the score and best combo, a "Level N unlocked" pill and a note when
 you have beaten your own record — then offers **Play Next Level**, Play Again, Level Select
-or Main Menu. When the next level's coin gate is out of reach the button says what it wants
-(`Level N needs 🪙 X`) instead of looking dead, and refuses the click — otherwise it would be
-a way straight past the gate that level select enforces. Level 70 drops the next-level
-button and shows an "every level cleared" line instead.
+or Main Menu. Level 70 drops the next-level button and shows an "every level cleared" line
+instead.
 
 Keyboard: `Esc` / `P` pause, `M` main menu. The board auto-pauses if you switch tabs.
 
