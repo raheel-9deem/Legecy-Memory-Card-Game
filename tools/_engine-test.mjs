@@ -620,10 +620,11 @@ gLock.flipCard(lockPairs[0][1].id);
 ok(gLock.locked === true, 'a match locks the board for its animation');
 // Both of these hold references to positions that an unflip timer is about to
 // read back, so neither may run mid-resolve.
+const orderBefore = gLock.board.cards.map((c) => `${c.id}@${c.position}`).join(',');
 ok(gLock.usePowerup('shuffle') === false, 'shuffle is refused while locked');
 ok(gLock.usePowerup('hint') === false, 'hint is refused while locked');
-const orderBefore = gLock.board.cards.map((c) => c.id).join(',');
-ok(gLock.board.cards.map((c) => c.id).join(',') === orderBefore, 'and the deck is left alone');
+ok(gLock.board.cards.map((c) => `${c.id}@${c.position}`).join(',') === orderBefore,
+  'and the deck is left exactly where it was');
 await wait(450);
 ok(gLock.usePowerup('shuffle') === true, 'both work again once the lock releases');
 // Nothing fires after the round is over either — the gameplay screen only docks

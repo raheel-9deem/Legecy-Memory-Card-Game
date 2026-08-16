@@ -238,6 +238,81 @@ ok(/setMuted|toggleMute/.test(read(join(ROOT, 'js/ui/audio.js'))), 'audio owns a
 ok(/audio\.setMuted/.test(read(join(ROOT, 'js/screens/menu.js'))),
   'the settings switch routes through the audio engine (so unmute can unlock the context)');
 
+group('audio engine: every cue that is played exists');
+const audioSrc = read(join(ROOT, 'js/ui/audio.js'));
+const soundsBlock = audioSrc.match(/const SOUNDS = \{[\s\S]*?\n\};/)?.[0] || '';
+ok(soundsBlock.length > 0, 'SOUNDS is a single object literal');
+const cueNames = new Set([...soundsBlock.matchAll(/^\s{2}([a-z]+):\s*\{/gm)].map((m) => m[1]));
+ok(cueNames.size >= 14, `the cue table has grown past the original nine (${cueNames.size} cues)`);
+// A typo'd cue name is silent rather than an error — play() looks the config up
+// and returns. Static checking is the only thing that catches it.
+let cueOk = true;
+for (const { path, src } of allJs) {
+  for (const m of src.matchAll(/(?:audio|this)\.play\('([^']+)'\)/g)) {
+    if (!cueNames.has(m[1])) { cueOk = false; console.log(`     ${rel(path)} plays '${m[1]}' — not in SOUNDS`); }
+  }
+}
+ok(cueOk, 'every play() call names a cue that exists');
+// gameplay.js fires the power-up key itself as a cue name, so the three keys
+// have to be cue names too or a power-up use goes silent.
+for (const key of ['hint', 'freeze', 'shuffle']) {
+  ok(cueNames.has(key), `the ${key} power-up has its own cue`);
+}
+let cueShapeOk = true;
+for (const m of soundsBlock.matchAll(/^\s{2}([a-z]+):\s*\{([^}]*)\}/gm)) {
+  for (const field of ['type:', 'freq:', 'dur:', 'gain:']) {
+    if (!m[2].includes(field)) { cueShapeOk = false; console.log(`     cue '${m[1]}' has no ${field}`); }
+  }
+}
+ok(cueShapeOk, 'every cue declares type, freq, dur and gain');
+ok(!/fetch\(|new Audio\(|\.mp3|\.ogg|\.wav/.test(audioSrc),
+  'every sound is synthesised — no audio assets, no network requests');
+
+group('audio engine: the signal chain is wired as documented');
+ok(/createDynamicsCompressor/.test(audioSrc), 'a limiter sits at the end of the chain');
+ok(/limiter\.connect\(ctx\.destination\)/.test(audioSrc), 'and it is the thing that reaches the destination');
+// One path to the speakers, or the limiter is bypassed and the win stack clips.
+ok((audioSrc.match(/\.connect\((?:ctx|this\.ctx)\.destination\)/g) || []).length === 1,
+  'nothing else connects straight to ctx.destination');
+ok(/this\.master\.connect\(limiter\)/.test(audioSrc), 'master feeds the limiter');
+for (const bus of ['sfxGain', 'musicGain']) {
+  ok(new RegExp(`this\\.${bus}\\.connect\\(this\\.master\\)`).test(audioSrc), `${bus} feeds master`);
+}
+ok(/createConvolver/.test(audioSrc) && /convolver\.buffer\s*=\s*this\._impulse\(/.test(audioSrc),
+  'the reverb runs on a synthesised impulse response (no .wav to ship)');
+ok(/this\.reverbSend\.connect\(convolver\)/.test(audioSrc), 'and is fed by a parallel send');
+ok(/_melody[\s\S]{0,600}this\.musicGain/.test(audioSrc), 'melodies run on the music bus');
+ok(/_duck\(this\.sfxGain/.test(audioSrc), 'and duck the effects bus underneath');
+ok(/setTargetAtTime/.test(audioSrc), 'bus levels are ramped, never stepped (a step is an audible click)');
+ok(/visibilitychange/.test(audioSrc) && /ctx\.suspend\(\)/.test(audioSrc),
+  'the context idles while the tab is hidden');
+// The short-cue bug: a 45ms tick whose attack outlasted its decay held peak gain
+// until the stop and came out as a click.
+ok(/dur\s*\*\s*0\.25/.test(audioSrc), 'the envelope attack scales with the note duration');
+ok(/_tickParity/.test(audioSrc), 'the countdown alternates pitch in the engine, not at the call site');
+ok(/starEarned/.test(audioSrc) && /audio\.starEarned\(/.test(winSrc),
+  'the win screen chimes one note per star');
+ok(/levelComplete\(stars/.test(audioSrc) && /perfect\(\)/.test(audioSrc),
+  'a three-star clear gets its own flourish');
+ok(/audio\.countdown\(\)/.test(gpSrc), 'the board plays the final-seconds heartbeat');
+
+group('audio engine: volume is a real control');
+ok(/setVolume\(/.test(audioSrc) && /store\.setSetting\('volume'/.test(audioSrc),
+  'setVolume persists through the save file');
+ok(/settings:\s*\{[^}]*volume:\s*1/.test(storageSrc),
+  'the default volume is full, so an older save never reads as muted');
+// A drag emits `input` continuously; the confirmation cue must wait for `change`.
+const menuSrc = read(join(ROOT, 'js/screens/menu.js'));
+ok(/data-volume/.test(menuSrc) && /type="range"/.test(menuSrc), 'settings has a volume slider');
+ok(/audio\.setVolume\(/.test(menuSrc), 'which drives the audio engine');
+ok(/addEventListener\('input'/.test(menuSrc) && /addEventListener\('change'/.test(menuSrc),
+  'live on input, one confirmation beep on change');
+ok(/slider\.disabled\s*=\s*!toggle\.checked/.test(menuSrc), 'and goes inert with the sound switch');
+ok(/aria-label="Volume"/.test(menuSrc), 'the slider is labelled for screen readers');
+for (const c of ['setting-slider', 'setting-value']) {
+  ok(cssClasses.has(c), `.${c} has a rule in style.css`);
+}
+
 group('card flip contract');
 ok(/--t-flip:\s*600ms/.test(css), 'the flip animation is 600ms (0.6s)');
 ok(/--ease-flip:\s*cubic-bezier/.test(css), 'the flip uses an easing curve');
