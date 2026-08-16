@@ -342,9 +342,19 @@ the 70 levels, the hard-mode coin bonus as a line item whose itemised rows still
 headline figure, a pair landing **on the final tick** scoring as a win rather than a loss
 (the completion check is deferred behind the match animation, so the expiring tick has to
 ask the board directly), power-ups refusing to fire while the board is locked or the round
-is over, the coin gate reporting `requiredCoins` on every refusal so a gated button can say
-what it wants, and a `volume` key missing from an older save file reading as full volume
-rather than silence.
+is over, every level being enterable from a fresh save with 🪙0, the progress marker still
+advancing on a clear without ever deciding what is playable, and a `volume` key missing from
+an older save file reading as full volume rather than silence.
+
+The **all-levels suite** is the one that takes "all 70 levels are in the game" literally: it
+plays every level from the first flip to the win — twice, on two different symbol sets, 140
+rounds in all — and checks each round dealt the right number of cards, dealt every symbol as
+a true pair, ended `won` with the board reporting complete, took exactly one move per pair
+and paid out coins. It also proves no theme is short of symbols for any level's pair count
+(a 6×8 board needs 24 distinct symbols and there are 24 in every set) and that no level's
+clock is under 5 seconds per pair. Rather than sleep through 1123 match animations it swaps
+`_defer` for a synchronous call per instance — the engine's own completion check still runs
+inside that callback, only the wait is skipped.
 
 The **hint suite** pins the hint half of the old "revealing a pair reveals the
 whole board" bug — `_hintTargets()` returns only the partner (1) or a single pair (2), never
@@ -374,7 +384,11 @@ ranges, that the "you are here" scroll drives its own container instead of
 `scrollIntoView()` (which walked every scrollable ancestor and dragged the sticky header
 off-screen), and that the mobile query shrinks the difficulty tag to a colour chip rather
 than hiding it — with five bands it is the only thing separating an expert board from a
-master one.
+master one. It also guards the "every level is open" rule from the other direction, by
+asserting the removed pieces cannot come back: no padlock or coin pill in a tile, no
+`aria-disabled` tile, no entry check gating the click in level select or on the win screen's
+next-level button, no `locked`/`coins` refusal left in `canPlay`, and a zero coin gate on
+every level definition.
 
 Layout, glow and animation are verified by code inspection and these tests — there is no
 headless browser here, so no rendered-pixel check.
