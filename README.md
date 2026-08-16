@@ -322,10 +322,10 @@ node tools/_all-levels-test.mjs "$PWD/.mirror"    #   9 every level dealt, enter
 node tools/_hint-test.mjs "$PWD/.mirror"          #  15 hint reveals-exactly-the-right-cards assertions
 node tools/_reveal-payload-test.mjs               #  16 pair/mismatch/unflip payload is 2 cards, never the board
 node tools/_powerup-coin-test.mjs                #  37 per-use coin-fee assertions
-node tools/_wiring-check.mjs .                    # 231 static wiring/CSS checks
+node tools/_wiring-check.mjs .                    # 228 static wiring/CSS checks
 ```
 
-548 assertions in total, and every runner exits non-zero on a single failure.
+545 assertions in total, and every runner exits non-zero on a single failure.
 
 The Windows mirror builder (`_build-win.mjs`) writes the `.mjs` copy into `./scratch-mmc`
 and takes no arguments; the generic `_build-check.mjs` takes source and destination. Either
