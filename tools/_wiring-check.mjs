@@ -230,7 +230,9 @@ ok(/reducedMotion\(\)/.test(effectsSrc.split('matchSparks')[1] || ''), 'the burs
 ok(/levelComplete\(\)/.test(hdrSrc) === false && /levelComplete/.test(read(join(ROOT, 'js/ui/audio.js'))),
   'audio exposes a named levelComplete cue');
 ok(/gameOver\(\)\s*\{/.test(read(join(ROOT, 'js/ui/audio.js'))), 'audio exposes a named gameOver cue');
-ok(/audio\.levelComplete\(\)/.test(gpSrc) && /audio\.gameOver\(\)/.test(gpSrc),
+// levelComplete takes the star count now (three stars get a longer flourish),
+// so match the call, not an empty argument list.
+ok(/audio\.levelComplete\(/.test(gpSrc) && /audio\.gameOver\(\)/.test(gpSrc),
   'gameplay uses the named round-end cues');
 ok(/setMuted|toggleMute/.test(read(join(ROOT, 'js/ui/audio.js'))), 'audio owns a mute toggle');
 ok(/audio\.setMuted/.test(read(join(ROOT, 'js/screens/menu.js'))),

@@ -159,9 +159,18 @@ export default {
 
     if (params.won) {
       confetti({ count: params.stars === 3 ? 130 : 80 });
-      // One chime per star, landing with each reveal.
+      // One chime per star, landing with each reveal and climbing a fourth each
+      // time, so three stars arrive as a rising figure rather than three of the
+      // same note.
       for (let i = 0; i < (Number(params.stars) || 0); i++) {
-        const id = setTimeout(() => audio.play('match'), 160 + i * STAR_STEP);
+        const id = setTimeout(() => audio.starEarned(i), 160 + i * STAR_STEP);
+        unsubs.push(() => clearTimeout(id));
+      }
+      // The unlock is the real reward on a first clear — give it its own cue,
+      // after the stars have finished so it is not buried under them.
+      if (params.unlockedLevel) {
+        const stars = Number(params.stars) || 0;
+        const id = setTimeout(() => audio.play('unlock'), 260 + stars * STAR_STEP);
         unsubs.push(() => clearTimeout(id));
       }
     }

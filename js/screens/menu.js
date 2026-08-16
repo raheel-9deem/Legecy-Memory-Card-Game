@@ -99,6 +99,7 @@ function openSettings() {
       <h2>Settings</h2>
 
       ${toggleRow('sound', 'Sound effects', 'Flips, matches and fanfares', store.getSetting('sound'))}
+      ${volumeRow(store.getSetting('sound') !== false, audio.volume)}
       ${toggleRow('particles', 'Background particles', 'Turn off to save battery', store.getSetting('particles'))}
       ${toggleRow('hardMode', 'Hard mode', 'Tighter timers, bigger rewards', store.getSetting('hardMode'))}
 

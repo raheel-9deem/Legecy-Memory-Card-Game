@@ -377,7 +377,8 @@ function onGameOver(e) {
     balanceBefore = coinBank.total;
     coinBank.award(coins, { levelId, purse: d.purse });
     store.recordMatchStats({ matches: d.total, combo: d.bestCombo });
-    audio.levelComplete();
+    // A three-star clear gets the longer flourish — see audio.perfect().
+    audio.levelComplete(d.stars);
   } else {
     audio.gameOver();
   }
