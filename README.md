@@ -314,23 +314,35 @@ node tools/_build-win.mjs
 # Generic mirror — pass an absolute mirror path on any platform:
 node tools/_build-check.mjs js .mirror
 
-node tools/_engine-test.mjs "$PWD/.mirror"        # 197 headless engine assertions
+node tools/_engine-test.mjs "$PWD/.mirror"        # 235 headless engine assertions
 node tools/_hint-test.mjs "$PWD/.mirror"          #  15 hint reveals-exactly-the-right-cards assertions
 node tools/_reveal-payload-test.mjs               #  16 pair/mismatch/unflip payload is 2 cards, never the board
 node tools/_powerup-coin-test.mjs                #  37 per-use coin-fee assertions
-node tools/_wiring-check.mjs .                    # 172 static wiring/CSS checks
+node tools/_wiring-check.mjs .                    # 226 static wiring/CSS checks
 ```
+
+529 assertions in total, and every runner exits non-zero on a single failure.
 
 The Windows mirror builder (`_build-win.mjs`) writes the `.mjs` copy into `./scratch-mmc`
 and takes no arguments; the generic `_build-check.mjs` takes source and destination. Either
 way, pass the mirror an **absolute** path to the test runners — they build `file://` URLs
 from it, and a bare relative path resolves to a non-absolute URL on Windows.
 
-The engine suite covers deck integrity on all 20 levels, the first-flip clock, the 1s
+The engine suite covers deck integrity on all 70 levels, the first-flip clock, the 1s
 mismatch hold, combo scoring and combo-match counting, power-ups, the 3-star boundaries,
 the coin formula (including part-second flooring and loss payouts), unlock progression,
 coin-bank persistence across a reload, and that the Coming Soon teasers cannot be purchased
-at any price. The **hint suite** pins the hint half of the old "revealing a pair reveals the
+at any price. It also pins the round-shape rules that are easy to regress: hard mode's
+75% clock with its 10-second floor reported through `snapshot().timeLimit` on every one of
+the 70 levels, the hard-mode coin bonus as a line item whose itemised rows still sum to the
+headline figure, a pair landing **on the final tick** scoring as a win rather than a loss
+(the completion check is deferred behind the match animation, so the expiring tick has to
+ask the board directly), power-ups refusing to fire while the board is locked or the round
+is over, the coin gate reporting `requiredCoins` on every refusal so a gated button can say
+what it wants, and a `volume` key missing from an older save file reading as full volume
+rather than silence.
+
+The **hint suite** pins the hint half of the old "revealing a pair reveals the
 whole board" bug — `_hintTargets()` returns only the partner (1) or a single pair (2), never
 the whole board, and the count is checked on untouched, one-card-held and last-pair boards.
 The **reveal-payload suite** pins the other half, which lived in the event payloads: each
@@ -342,11 +354,26 @@ keys after, and the suite asserts `pair:match`, `pair:mismatch` and `card:unflip
 exactly two cards, across a full 8-pair clear and a full sweep of mismatches. The
 **power-up coin suite** locks the per-use fee: a fire requires both a stocked unit and the
 `useCost` coins, spends exactly one of each on success, and on any refusal (no funds, no
-stock, or the engine refusing a locked board) burns neither. The wiring check verifies every
-import, `EVENTS.*` key and referenced CSS class resolves, that `core/` stays DOM-free, that
-the subscribe form sends nothing off-device, and that no entrance animation uses a fill-mode
-that would defeat `:hover`. Layout, glow and animation are verified by code inspection and
-these tests — there is no headless browser here, so no rendered-pixel check.
+stock, or the engine refusing a locked board) burns neither.
+
+The wiring check verifies every import, `EVENTS.*` key and referenced CSS class resolves,
+that `core/` stays DOM-free, that the subscribe form sends nothing off-device, and that no
+entrance animation uses a fill-mode that would defeat `:hover`. It also checks the two
+things a unit test cannot reach. For **audio**: every `play('name')` call across the
+codebase names a cue that exists in `SOUNDS` — a typo is silent rather than an error, so
+static checking is the only thing that catches it — each of the three power-up keys is a cue
+name, and the signal chain matches the diagram above, including that the limiter is the
+*only* node reaching `ctx.destination` (anything else connecting directly would bypass it
+and let the win stack clip). For the **70-level UI**: that `TOTAL_LEVELS` is derived from
+the table, that level select's bands come from `difficulty` rather than hard-coded id
+ranges, that the "you are here" scroll drives its own container instead of
+`scrollIntoView()` (which walked every scrollable ancestor and dragged the sticky header
+off-screen), and that the mobile query shrinks the difficulty tag to a colour chip rather
+than hiding it — with five bands it is the only thing separating an expert board from a
+master one.
+
+Layout, glow and animation are verified by code inspection and these tests — there is no
+headless browser here, so no rendered-pixel check.
 
 ## Credits
 
