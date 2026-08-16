@@ -129,9 +129,9 @@ for (const c of [
   'timer-ring', 'timer-ring-track', 'timer-ring-arc', 'timer-ring-face',
   'timer-ring-value', 'timer-ring-state', 'card-symbol', 'card-back-icon',
   'card-front', 'card-back', 'card-inner', 'card-face',
-  'level-gate', 'gated', 'result-timeout', 'board-wrap', 'mismatch',
+  'result-timeout', 'board-wrap', 'mismatch',
   // coin flight + level meta + win screen (star reveal, criteria, breakdown)
-  'coin-fly', 'catch', 'coins-pill', 'level-req', 'level-best',
+  'coin-fly', 'catch', 'coins-pill', 'level-best',
   'star-criteria', 'crit-mark', 'crit-text', 'crit-label', 'crit-detail',
   'coin-breakdown', 'coin-row', 'coin-row-label', 'coin-row-value',
   'result-meta', 'result-unlock', 'result-record',
