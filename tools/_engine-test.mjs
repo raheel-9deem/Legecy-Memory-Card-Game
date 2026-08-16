@@ -633,23 +633,23 @@ ok(gLock.usePowerup('hint') === false && gLock.usePowerup('freeze') === false,
   'and neither fires once the round has ended');
 gLock.destroy();
 
-group('the coin gate holds on every route into a level');
-const gated = LEVELS.find((l) => (l.requiredCoins || 0) > 0);
-ok(!!gated, `at least one level gates on a coin balance (level ${gated && gated.id})`);
+group('the gate reports what it wants, not just "no"');
+// The win screen's next-level button and the level-select tile both print the
+// balance the gate is asking for. A refusal with no number renders as a dead
+// button, so requiredCoins has to come back on every branch.
+const gateLevel = LEVELS.find((l) => l.requiredCoins > 0);
 store.state.unlockedLevel = TOTAL_LEVELS;
-store.state.coins = gated.requiredCoins - 1;
-const short = store.canPlay(gated.id);
-ok(short.ok === false && short.reason === 'coins',
-  `level ${gated.id} is refused one coin short of its gate`);
-ok(short.requiredCoins === gated.requiredCoins,
-  'and reports what it wants, so the button can say so instead of looking dead');
-store.state.coins = gated.requiredCoins;
-ok(store.canPlay(gated.id).ok === true, 'and opens on the exact balance');
-// The gate is a balance check, not a toll: entering must not spend anything.
-ok(store.state.coins === gated.requiredCoins, 'playing a gated level spends nothing');
+store.state.coins = gateLevel.requiredCoins - 1;
+const shortGate = store.canPlay(gateLevel.id);
+ok(shortGate.ok === false && shortGate.reason === 'coins',
+  `L${gateLevel.id} is still refused one coin short of its gate`);
+ok(shortGate.requiredCoins === gateLevel.requiredCoins,
+  `the refusal carries the figure to display (${shortGate.requiredCoins})`);
 store.state.unlockedLevel = 1;
-ok(store.canPlay(TOTAL_LEVELS).reason === 'locked',
-  'a locked level reports "locked" first, whatever the balance');
+const lockedGate = store.canPlay(gateLevel.id);
+ok(lockedGate.requiredCoins === gateLevel.requiredCoins,
+  'and so does a "locked" refusal, so the tile can show both facts at once');
+ok(store.canPlay(1).requiredCoins === 0, 'an ungated level asks for nothing');
 
 group('audio settings survive an old save file');
 // `volume` did not exist when v2 saves were first written. A missing key must
