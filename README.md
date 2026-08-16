@@ -1,7 +1,7 @@
 # Memory Master
 
 A polished single-page memory card game — glass morphism UI, neon accents, animated
-particle background, 20 levels, coins, a store and power-ups. No build step, no
+particle background, 70 levels, coins, a store and power-ups. No build step, no
 dependencies, no bundler.
 
 ## Running it
@@ -28,17 +28,17 @@ js/
   main.js               Bootstrap — wires storage, header, router, particles, pause
   core/
     game.js             Engine: GameManager, GameBoard, Card (no DOM)
-    levels.js           20 level definitions + the 3-star rating maths
+    levels.js           70 level definitions + the 3-star rating maths
     coins.js            Coin payout formula and the persistent coin bank
     router.js           SPA router; lazy-loads screens with dynamic import()
     storage.js          localStorage save file: player, progress, coins
     events.js           EventBus (EventTarget) + EVENTS name table
   data/
-    themes.js           12 emoji symbol sets + random theme selection
+    themes.js           12 emoji symbol sets (24 symbols each) + random selection
     store-items.js      Card backs, store catalogue, power-up metadata
   screens/
     menu.js             Neon title, Play / Store / Settings, settings modal
-    level-select.js     Scrollable 20-level grid: locks, coin gates, best time, stars
+    level-select.js     70 levels in five difficulty bands: locks, gates, best time, stars
     gameplay.js         Board rendering, driven entirely by engine events
     store.js            Tabbed shop: card backs, themes, power-ups, Coming Soon
     win.js              Result screen: star reveal, coin breakdown, next level
@@ -46,7 +46,7 @@ js/
     header.js           Coins / level / timer / moves + nav buttons
     timer-ring.js       Circular corner countdown, green → red as time drains
     particles.js        Canvas floating-particle background
-    audio.js            Synthesised WebAudio sound effects (no asset files)
+    audio.js            Synthesised WebAudio engine: two buses, limiter, reverb
     toast.js            Transient messages
     effects.js          Confetti, combo flashes, coin flight, match sparks
 tools/                  Dev-only verification scripts (not shipped)
@@ -79,22 +79,34 @@ export default {
 
 ## Levels
 
-20 levels in six grid tiers. The time budget **tightens with every level inside a tier**,
-then steps back up when the grid grows — a literal countdown across all 20 would make the
-15-pair board unwinnable.
+70 levels in ten grid tiers. The time budget **tightens with every level inside a tier**,
+then steps back up when the grid grows — a literal countdown across all 70 would make the
+24-pair board unwinnable. Every level still allows at least 5 seconds per pair.
 
-| Levels | Grid | Pairs | Time     | Difficulty |
-| ------ | ---- | ----- | -------- | ---------- |
-| 1–3    | 2×2  | 2     | 30→20s   | easy       |
-| 4–6    | 2×3  | 3     | 42→30s   | easy       |
-| 7–10   | 4×3  | 6     | 78→56s   | medium     |
+| Levels | Grid | Pairs | Time     | Difficulty  |
+| ------ | ---- | ----- | -------- | ----------- |
+| 1–3    | 2×2  | 2     | 30→20s   | easy        |
+| 4–6    | 2×3  | 3     | 42→30s   | easy        |
+| 7–10   | 4×3  | 6     | 78→56s   | medium      |
 | 11–15  | 4×4  | 8     | 104→74s  | medium/hard |
-| 16–18  | 4×5  | 10    | 124→100s | hard       |
-| 19–20  | 6×5  | 15    | 175→158s | expert     |
+| 16–18  | 4×5  | 10    | 124→100s | hard        |
+| 19–20  | 6×5  | 15    | 175→158s | expert      |
+| 21–32  | 4×8  | 16    | 150→84s  | expert      |
+| 33–44  | 6×6  | 18    | 168→102s | expert      |
+| 45–56  | 5×8  | 20    | 190→124s | master      |
+| 57–70  | 6×8  | 24    | 230→152s | master      |
+
+The four tiers past level 20 only ever climb: each holds more pairs than the 15 of levels
+19–20, so the ladder never revisits a smaller board. Their clocks come from `ramp(from,
+count)` — one budget per level, six seconds off each step — rather than being spelled out.
 
 Each level also carries a `requiredCoins` **balance gate** — a minimum you must be
 holding to enter, never spent — and a fallback theme used when no random one is drawn.
-Grids re-orient to portrait on phones so cards stay large.
+Levels 1–20 gate from 0 up to 🪙1000; past that the curve is a steady 60 coins per level,
+🪙1100 at level 21 rising to 🪙4040 at level 70. A single clear on those boards pays several
+times the 60-coin step, so the gate never turns into a grind. Grids re-orient to portrait
+on phones so cards stay large, and the 24-pair boards scroll inside the board area rather
+than shrinking their cards past the point of being readable.
 
 ## Cards and matching
 
@@ -123,8 +135,10 @@ pulses. At zero the round ends on the **Game Over** screen with Retry Level / Le
 
 ## Themes
 
-12 emoji sets, 18 symbols each: fruits, animals, space, food, sports, tech, transport,
-nature, weather, music, shapes and flags. A level draws a **random theme each round** by
+12 emoji sets, 24 symbols each: fruits, animals, space, food, sports, tech, transport,
+nature, weather, music, shapes and flags. 24 is the floor, not a round number — the 6×8
+boards need 24 distinct symbols, and a set any shorter would have to repeat one and hand
+the player two identical-looking pairs. A level draws a **random theme each round** by
 default (the free "Surprise Me" store option), weighted so easy levels stay gentle and
 expert levels can pull the trickier lookalike sets. Equipping a specific theme in the
 store pins it instead.
@@ -153,13 +167,16 @@ needed — so a missing star is never a guess.
  2  per combo match (every match after the first in an unbroken run)
 ```
 
-A loss pays nothing. Hard mode adds 25%. On a win the coins **fly from the board to the
-header counter** along an arced path, and the counter tweens up as they land — the balance
-itself is banked the instant it is earned, so leaving mid-flight can never lose a payout.
-`core/coins.js` computes and banks; `ui/effects.js` owns the animation, keeping `core/`
-free of DOM.
+A loss pays nothing. Hard mode adds **+25% on the sum of the three above**, computed
+inside `calculateCoins()` as its own `bonus` line rather than by the caller — when the
+gameplay screen multiplied the total afterwards, the win screen listed unboosted rows
+under a boosted headline and the sum visibly disagreed. On a win the coins **fly from the
+board to the header counter** along an arced path, and the counter tweens up as they land —
+the balance itself is banked the instant it is earned, so leaving mid-flight can never lose
+a payout. `core/coins.js` computes and banks; `ui/effects.js` owns the animation, keeping
+`core/` free of DOM.
 
-- **Power-ups** — Reveal (peek at the hidden cards), Freeze (stop the clock 10s),
+- **Power-ups** — Reveal (flash one matching pair), Freeze (stop the clock 10s),
   Shuffle (rearrange the unmatched cards). Each power-up is stocked in the store as a
   consumable bundle, and **every use also charges a coin fee from your live balance** on
   top of the stocked unit — a use requires *both* a unit in hand *and* the coins to pay:
@@ -168,9 +185,15 @@ free of DOM.
 
   | Power-up | Stock bundle | Per-use fee | Effect                                   |
   | -------- | ------------ | ----------- | ---------------------------------------- |
-  | Reveal   | 👁️ ×3 (🪙120) | 🪙 20       | Peek at the hidden cards for 1.5s       |
+  | Reveal   | 👁️ ×3 (🪙120) | 🪙 20       | Flash one matching pair for 1.5s         |
   | Freeze   | 🧊 ×2 (🪙150) | 🪙 40       | Stop the clock for 10s                   |
   | Shuffle  | 🔀 ×2 (🪙100) | 🪙 30       | Rearrange the still-unmatched cards      |
+
+  Reveal shows the **partner of the card in your hand**, or one complete pair if your hands
+  are empty — never the board. Holding one card, the only question worth answering is where
+  its twin is; exposing everything would hand over the round rather than help with it.
+  Reveal and Shuffle are both refused while a pair is mid-resolve: an unflip timer is
+  holding two positions, and re-seating the deck under it leaves the wrong cards face-up.
 
 ## Store
 
@@ -196,8 +219,24 @@ that path.
 
 ## Sound
 
-`ui/audio.js` synthesises everything through WebAudio — no asset files. The context is
-created lazily on the first user gesture, since browsers block it earlier.
+`ui/audio.js` synthesises everything through WebAudio — no asset files, no network
+requests. The context is created lazily on the first user gesture, since browsers block it
+earlier, and suspends itself while the tab is hidden rather than holding the audio hardware
+open in the background.
+
+```
+voices ──► sfxGain   ──┐
+                       ├──► master ──► limiter ──► destination
+melodies ─► musicGain ─┘        │
+                 └──► reverbSend ──► convolver ──┘
+```
+
+Two buses, because a fanfare needs to duck the effects under it without touching the
+player's master volume, and because the limiter should see one summed signal — a three-star
+win fires star chimes, a coin run and a five-note melody inside the same 400ms, and that
+stack clipped before the limiter existed. The reverb is a **convolver fed by a synthesised
+impulse response** (two exponentially-decaying noise channels), so there is still no `.wav`
+to ship; cues send to it in parallel, so the dry hit keeps its attack.
 
 | Cue | Trigger |
 | --- | --- |
@@ -205,15 +244,29 @@ created lazily on the first user gesture, since browsers block it earlier.
 | `match` / `combo(n)` | pair matched; pitch climbs with the combo |
 | `mismatch` | wrong pair |
 | `coin` | payout and purchases |
-| `click` | buttons and tabs |
+| `click` | buttons, tabs and the volume slider settling |
 | `error` | rejected action |
-| `powerup` | power-up used |
-| `levelComplete()` | level cleared (4-note rising melody) |
+| `hint` / `freeze` / `shuffle` | the three power-ups, each its own cue |
+| `powerup` | fallback for a power-up with no dedicated sound |
+| `tick` / `tock` | `countdown()` — alternating heartbeat under the last 10 seconds |
+| `star` | `starEarned(n)` — one chime per star, each a fourth above the last |
+| `unlock` | a level unlocked on a first clear |
+| `levelComplete(stars)` | level cleared: 4-note rising melody, or the 5-note `perfect()` flourish at three stars |
 | `gameOver()` | time ran out (3-note falling melody) |
 
-`audio.setMuted()` / `audio.toggleMute()` drive the **Sound effects** switch in Settings and
-persist through the save file, so the preference survives a reload. Unmuting routes through
-the engine on purpose: it has to unlock the audio context from inside the click gesture.
+Repeated cues are **detuned slightly on every trigger**. Flip fires up to sixty times a
+round, and an identical sample at an identical pitch stops reading as a card and starts
+reading as a beep; the deliberate ones (`error`, `coin`) stay fixed. Envelope attacks scale
+with note duration for the same class of reason — a 45ms tick whose 12ms attack outlasted
+its own decay held peak gain until the stop and came out as a click.
+
+`audio.setVolume()` / `audio.volume` drive a **0–100 slider** in Settings and persist
+through the save file; the level is ramped rather than stepped, since a jump on a live gain
+node is audible. A save file written before the slider existed has no `volume` key, so a
+missing value reads as **full volume** — never silence. `audio.setMuted()` /
+`audio.toggleMute()` drive the **Sound effects** switch above it, which the slider follows
+into a disabled state. Unmuting routes through the engine on purpose: it has to unlock the
+audio context from inside the click gesture.
 
 ## Progress
 
@@ -223,23 +276,33 @@ Clearing a level unlocks the next one and writes the run to `localStorage` under
 best time / best stars / clear count, purchases and settings. Best records only ever
 improve; a weaker replay leaves them alone.
 
-**Level select** shows all 20 in a scrollable grid and scrolls to where you are. Each card
-carries its number, grid size, difficulty, the coin balance the level gates on (red when
-you are short), your best time and your stars. Locked levels are greyed, desaturated and
-show a padlock.
+**Level select** groups all 70 into five difficulty bands — Warm-up, Steady, Sharp, Expert
+and Master — each with its own heading, level range, count and accent colour, and scrolls to
+where you are up to. The bands are derived from each level's own `difficulty`, not from
+hard-coded id ranges, so re-tiering a level in `core/levels.js` moves it between bands with
+no second edit. Each card carries its number, grid size, difficulty, the coin balance the
+level gates on (red when you are short), your best time and your stars. Locked levels are
+greyed, desaturated and show a padlock.
 
 **Win screen** reveals the stars, then time, moves and coins earned with the payout
 itemised line by line, the score and best combo, a "Level N unlocked" pill and a note when
 you have beaten your own record — then offers **Play Next Level**, Play Again, Level Select
-or Main Menu. Level 20 drops the next-level button.
+or Main Menu. When the next level's coin gate is out of reach the button says what it wants
+(`Level N needs 🪙 X`) instead of looking dead, and refuses the click — otherwise it would be
+a way straight past the gate that level select enforces. Level 70 drops the next-level
+button and shows an "every level cleared" line instead.
 
 Keyboard: `Esc` / `P` pause, `M` main menu. The board auto-pauses if you switch tabs.
 
 ## Settings
 
-Sound effects, background particles and hard mode (25% less time, 25% more coins) each
-toggle from the menu's Settings modal. The particle field and all animations also
-respect `prefers-reduced-motion`.
+Sound effects, a **0–100 volume slider** (inert while sound is off), background particles
+and hard mode each toggle from the menu's Settings modal. Hard mode squeezes the clock to
+**75%** of the level's budget — floored at 10 seconds, so no level can hand out an
+unwinnable round — and pays **25% more coins**. The squeeze lives in the engine, not the
+gameplay screen, so the star tests and the "time to spare" line both measure against the
+clock the player actually got. The particle field and all animations also respect
+`prefers-reduced-motion`.
 
 ## Verifying
 
