@@ -20,7 +20,7 @@ function defaults() {
     owned: ['back-nebula', 'auto', 'fruits'],
     equipped: { cardBack: 'back-nebula', theme: 'auto' },
     powerups: { hint: 2, freeze: 1, shuffle: 1 },
-    settings: { sound: true, particles: true, hardMode: false, notifyUpdates: false },
+    settings: { sound: true, volume: 1, particles: true, hardMode: false, notifyUpdates: false },
     stats: { gamesPlayed: 0, gamesWon: 0, totalMatches: 0, bestCombo: 0 },
     /** Cross-session player record. */
     player: { createdAt: null, lastPlayed: null, totalCoinsEarned: 0 },

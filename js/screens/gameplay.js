@@ -327,6 +327,9 @@ function onTick(e) {
   timerRing.update(timeLeft);
   header.setTimer(timeLeft);
   if (!frozen && timeLeft === 10) toast('10 seconds left!', 'error', 1600);
+  // A heartbeat under the last ten seconds. Skipped while frozen — the whole
+  // point of Freeze is that the clock is not the thing to worry about.
+  if (!frozen && timeLeft > 0 && timeLeft <= 10) audio.countdown();
 }
 
 function onProgress(e) {
@@ -453,7 +456,10 @@ function usePowerup(key) {
   store.usePowerup(key);
   // …and charge the per-use coin fee from the live balance.
   if (cost) store.spendCoins(cost);
-  audio.play('powerup');
+  // Each power-up has its own cue, so the confirmation is audible without
+  // looking away from the board; 'powerup' stays the fallback for anything
+  // without a dedicated sound.
+  audio.play(POWERUP_ORDER.includes(key) ? key : 'powerup');
 
   if (key === 'freeze') toast('Clock frozen for 10 seconds', 'success', 1600);
 }
