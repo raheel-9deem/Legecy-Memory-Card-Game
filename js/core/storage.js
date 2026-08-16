@@ -6,7 +6,7 @@
  */
 
 import { bus, EVENTS } from './events.js';
-import { TOTAL_LEVELS, getLevel } from './levels.js';
+import { TOTAL_LEVELS } from './levels.js';
 import { getStoreItem } from '../data/store-items.js';
 
 const SAVE_KEY = 'memory-master:save:v2';
