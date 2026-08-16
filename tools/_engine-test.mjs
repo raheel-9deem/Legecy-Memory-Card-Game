@@ -121,10 +121,10 @@ for (const want of ['fruits', 'animals', 'space', 'food', 'sports', 'tech', 'fla
 let symOk = true, dupOk = true;
 for (const id of THEME_IDS) {
   const t = THEMES[id];
-  if (t.symbols.length < 24) { symOk = false; console.log(`     ${id}: only ${t.symbols.length} symbols`); }
+  if (t.symbols.length < 32) { symOk = false; console.log(`     ${id}: only ${t.symbols.length} symbols`); }
   if (new Set(t.symbols).size !== t.symbols.length) { dupOk = false; console.log(`     ${id}: duplicate symbols`); }
 }
-ok(symOk, 'every theme has >= 24 symbols (the 6x8 board needs 24 pairs)');
+ok(symOk, 'every theme has >= 32 symbols (the 8x8 board needs 32 pairs)');
 ok(dupOk, 'no theme repeats a symbol');
 ok(getTheme('nope').id === 'fruits', 'getTheme falls back on an unknown id');
 
@@ -136,7 +136,7 @@ ok(autoPicks.size > 1, `auto mode varies the theme per round (${autoPicks.size} 
 ok([...autoPicks].every((id) => THEME_IDS.includes(id)), 'every auto roll is a real theme');
 ok(themeForLevel(getLevel(12), 'flags') === 'flags', 'an explicitly equipped theme is respected');
 
-group('deck integrity across all 70 levels');
+group('deck integrity across all 100 levels');
 let deckOk = true, posOk = true, symbolsOk = true;
 for (const level of LEVELS) {
   const g = new GameManager();
@@ -412,7 +412,7 @@ memStore.clear();
 store.reset();
 store.load();
 ok(store.state.unlockedLevel === 1, 'a fresh save starts its progress marker at level 1');
-ok(store.isUnlocked(1) && store.isUnlocked(2), 'and level 2 is open anyway — nothing is locked');
+ok(store.isUnlocked(1) && !store.isUnlocked(2), 'level 1 is open and everything above it is locked');
 ok(typeof store.state.player.createdAt === 'string', 'the player record is stamped on first load');
 ok(typeof store.state.player.lastPlayed === 'string', 'lastPlayed is stamped every session');
 
@@ -443,7 +443,7 @@ ok(saved.levels['1'].stars === 3 && saved.levels['1'].bestTime === 8, 'per-level
 ok(typeof saved.player.createdAt === 'string', 'the player block is part of the save file');
 
 store.recordWin(TOTAL_LEVELS, { stars: 3, time: 30, moves: 20 });
-ok(store.state.unlockedLevel <= TOTAL_LEVELS, 'clearing the last level cannot unlock a 21st');
+ok(store.state.unlockedLevel <= TOTAL_LEVELS, 'clearing the last level cannot unlock a 101st');
 ok(hasNextLevel(TOTAL_LEVELS) === false, 'and hasNextLevel agrees there is nothing after it');
 
 group('coin bank persists across sessions');
@@ -484,22 +484,36 @@ ok(markup.includes('timer-ring-arc') && markup.includes('stroke-dasharray'), 'ri
 ok(markup.includes('role="timer"'), 'the ring is announced as a timer');
 ok(new TimerRing().reset(60) instanceof TimerRing, 'reset() is safe before attach (no DOM)');
 
-group('every level is enterable');
+group('only the reached level is enterable');
 store.load();
-// The two things that used to withhold a level: an empty purse and no progress.
+// Entry is earned by clearing, never bought: a full purse opens nothing, and an
+// empty one withholds nothing below the marker.
 store.state.coins = 0;
 store.state.unlockedLevel = 1;
-const refused = LEVELS.filter((l) => !store.canPlay(l.id).ok);
-ok(refused.length === 0,
-  `all ${LEVELS.length} levels are enterable at 0 coins from a fresh save (${refused.length} refused)`);
-ok(LEVELS.every((l) => store.isUnlocked(l.id)), 'and every level id reports as unlocked');
-ok(LEVELS.every((l) => l.requiredCoins === 0), 'no level definition carries a coin gate');
-ok(store.canPlay(LEVELS.length).ok === true, 'the last level is enterable without clearing the 69 before it');
-ok(store.state.coins === 0, 'entering a level costs nothing');
-// A bad id is still refused — that is the only remaining refusal branch, and it
-// has to report a reason rather than throw.
+const open = LEVELS.filter((l) => store.canPlay(l.id).ok);
+ok(open.length === 1 && open[0].id === 1, `only level 1 is open on a fresh save (${open.length} open)`);
+ok(store.canPlay(2).ok === false && store.canPlay(2).reason === 'locked', 'level 2 is refused as locked');
+ok(store.canPlay(2).requiredLevel === 1, 'and names level 1 as the one to clear');
+ok(store.canPlay(TOTAL_LEVELS).reason === 'locked', 'the last level cannot be reached from a fresh save');
+ok(store.canPlay(1).requiredCoins === 0 && LEVELS.every((l) => l.requiredCoins === 0),
+  'no level asks for a coin balance');
+store.state.coins = 99999;
+ok(store.canPlay(2).ok === false, 'and a full purse still cannot buy the way in');
+store.state.coins = 0;
+// Walking the ladder: each clear opens exactly one more level, no further.
+store.state.unlockedLevel = 5;
+ok(store.canPlay(5).ok && store.canPlay(4).ok && store.canPlay(1).ok,
+  'every level up to the marker stays open for a replay');
+ok(!store.canPlay(6).ok, 'and the one past it does not');
+ok(store.canPlay(6).requiredLevel === 5, 'the refusal names the level directly below');
+// A bad id is refused with its own reason rather than throwing.
 ok(store.canPlay(0).ok === false && store.canPlay(0).reason === 'unknown', 'id 0 is not a level');
-ok(store.canPlay(LEVELS.length + 1).ok === false, 'an id past the last level is not a level');
+ok(store.canPlay(LEVELS.length + 1).ok === false && store.canPlay(LEVELS.length + 1).reason === 'unknown',
+  'an id past the last level is not a level');
+ok(store.canPlay('nope').ok === false && store.canPlay(1.5).ok === false,
+  'a non-integer id is refused rather than rounded into a level');
+ok(store.isUnlocked(5) === true && store.isUnlocked(6) === false, 'isUnlocked agrees with canPlay');
+ok(store.currentLevel === 5, 'currentLevel reports the furthest open level');
 
 group('store catalogue');
 const themeItems = STORE_ITEMS.filter((i) => i.kind === 'theme');
@@ -648,18 +662,27 @@ ok(gLock.usePowerup('hint') === false && gLock.usePowerup('freeze') === false,
   'and neither fires once the round has ended');
 gLock.destroy();
 
-group('progress is tracked but never withholds');
-// `unlockedLevel` survives as *progress* — level select marks the tile the
-// player is up to and scrolls to it. What it must not do any more is decide
-// what is playable, so a save sitting at level 1 still opens level 70.
+group('the ladder is walked in order');
+// `unlockedLevel` is both progress *and* permission: level select scrolls to it,
+// and nothing above it can be entered. A save parked at level 1 must not open
+// level 100, and a clear must open exactly one more level.
 store.load();
 store.state.unlockedLevel = 1;
+store.state.levels = {};
 store.state.coins = 0;
-ok(store.canPlay(TOTAL_LEVELS).ok === true, 'a save parked at level 1 can still enter level 70');
+ok(store.canPlay(TOTAL_LEVELS).ok === false, 'a save parked at level 1 cannot enter the last level');
+const clear1 = store.recordWin(1, { stars: 3, time: 10, moves: 2 });
+ok(store.state.unlockedLevel === 2 && clear1.unlockedLevel === 2, 'clearing level 1 opens level 2');
+ok(store.canPlay(2).ok === true && store.canPlay(3).ok === false, 'and level 3 stays shut');
+// A cleared level cannot be un-cleared, so a replay never closes anything.
+const replay1 = store.recordWin(1, { stars: 1, time: 25, moves: 8 });
+ok(replay1.unlockedLevel === null && store.state.unlockedLevel === 2,
+  'replaying a cleared level unlocks nothing and does not roll the marker back');
+// Recording a clear for a level further up (the save-repair path, or a future
+// skip-token) advances the marker but still only by one.
 const clear7 = store.recordWin(7, { stars: 3, time: 20, moves: 12 });
-ok(store.state.unlockedLevel === 8, 'clearing a level still advances the progress marker');
-ok(clear7.unlockedLevel === 8, 'and still reports the advance so the win screen can announce it');
-// Clearing out of order must not walk the marker backwards.
+ok(store.state.unlockedLevel === 8 && clear7.unlockedLevel === 8,
+  'a clear higher up the ladder advances the marker to just past it');
 store.recordWin(3, { stars: 1, time: 40, moves: 30 });
 ok(store.state.unlockedLevel === 8, 'clearing an earlier level does not drag the marker back');
 const last = store.recordWin(TOTAL_LEVELS - 1, { stars: 3, time: 30, moves: 24 });
@@ -668,7 +691,38 @@ ok(store.state.unlockedLevel === TOTAL_LEVELS && last.unlockedLevel === TOTAL_LE
 const past = store.recordWin(TOTAL_LEVELS, { stars: 3, time: 30, moves: 24 });
 ok(store.state.unlockedLevel === TOTAL_LEVELS && past.unlockedLevel === null,
   'and clearing the last level leaves it there rather than running past the ladder');
-ok(store.canPlay(1).requiredCoins === 0, 'no level asks for a balance');
+ok(store.canPlay(TOTAL_LEVELS + 1).ok === false, 'there is no level past the last one to unlock');
+
+group('a save file is repaired rather than trusted');
+// A save written while every level was open can hold clears far above its
+// marker. Re-locking those would take levels the player has already beaten, so
+// load() lifts the marker to one past the furthest clear.
+memStore.set(SAVE_KEY, JSON.stringify({
+  unlockedLevel: 1,
+  levels: { 1: { cleared: true, stars: 3 }, 42: { cleared: true, stars: 2 } },
+}));
+store.load();
+ok(store.state.unlockedLevel === 43, 'a legacy save keeps access to everything it had cleared (43)');
+ok(store.canPlay(43).ok === true && store.canPlay(44).ok === false, 'and is locked one past its furthest clear');
+// Corrupt markers must not lock level 1 or open the whole ladder.
+for (const [bad, want] of [[0, 1], [-5, 1], [null, 1], ['nope', 1], [999, TOTAL_LEVELS], [1.5, 1]]) {
+  memStore.set(SAVE_KEY, JSON.stringify({ unlockedLevel: bad, levels: {} }));
+  store.load();
+  ok(store.state.unlockedLevel === want,
+    `an unlockedLevel of ${JSON.stringify(bad)} is repaired to ${want}`);
+}
+// A clear recorded against an id that is not a level must not move the marker.
+memStore.set(SAVE_KEY, JSON.stringify({
+  unlockedLevel: 4,
+  levels: { 4: { cleared: true }, 500: { cleared: true }, nope: { cleared: true } },
+}));
+store.load();
+ok(store.state.unlockedLevel === 5, 'junk level ids in the save are ignored by the repair');
+ok(store.canPlay(1).ok && !store.canPlay(6).ok, 'and the repaired save gates exactly where it should');
+// reset() puts the player back at the start of the ladder.
+store.reset();
+ok(store.state.unlockedLevel === 1 && store.canPlay(2).ok === false,
+  'resetting progress re-locks everything above level 1');
 
 group('audio settings survive an old save file');
 // `volume` did not exist when v2 saves were first written. A missing key must

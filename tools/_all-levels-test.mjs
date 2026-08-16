@@ -2,16 +2,22 @@
  * Every level, played to the end.
  *
  * The rest of the suite checks the engine against a handful of representative
- * levels. This one takes the claim literally: all 70 levels are in the game and
- * every one of them can be entered, dealt, solved and paid out. It is the test
- * that would have caught a tier whose grid has no legal deal, a theme with too
- * few symbols for a 24-pair board, or a clock too short to be winnable.
+ * levels. This one takes the claim literally: all 100 levels are in the game and
+ * every one of them can be dealt, solved and paid out. It is the test that would
+ * have caught a tier whose grid has no legal deal, a theme with too few symbols
+ * for a 32-pair board, or a clock too short to be winnable.
+ *
+ * Note that a level being *playable* and a level being *open* are two different
+ * claims. The engine deals any level it is handed — the sequential lock lives in
+ * storage.canPlay(), which the screens consult and the engine does not. So the
+ * playthroughs below deliberately bypass the lock, and the lock gets its own
+ * group.
  *
  *   node tools/_build-win.mjs
  *   node tools/_all-levels-test.mjs <mirror>
  *
- * Speed: a real clear waits MATCH_DELAY (380ms) per pair, and there are 1123
- * pairs across the ladder — seven minutes of sleeping. So `_defer` is replaced
+ * Speed: a real clear waits MATCH_DELAY (380ms) per pair, and there are 1993
+ * pairs across the ladder — twelve minutes of sleeping. So `_defer` is replaced
  * per instance with a synchronous call. The engine's own completion check still
  * runs, unmodified, inside that callback; only the sleep is skipped.
  */
