@@ -381,6 +381,47 @@ button:disabled, .btn-primary:disabled, .btn-secondary:disabled, .btn-gold:disab
 .screen-head h2 { font-size: clamp(1.5rem, 5vw, 2.4rem); font-weight: 800; letter-spacing: 0.02em; }
 .screen-head p { color: var(--text-muted); font-size: 0.88rem; margin-top: 6px; }
 
+/* ---------- Difficulty bands (level select) ----------
+   One section per consecutive run of same-difficulty levels. The band's accent
+   colour is published as --band so the heading, rule and counter all pick it up
+   from one declaration. */
+.level-band { width: 100%; max-width: 940px; margin: 0 auto; }
+.level-band[data-difficulty='easy']   { --band: var(--green); }
+.level-band[data-difficulty='medium'] { --band: var(--cyan); }
+.level-band[data-difficulty='hard']   { --band: var(--pink); }
+.level-band[data-difficulty='expert'] { --band: var(--red); }
+.level-band[data-difficulty='master'] { --band: var(--gold); }
+
+.level-band-head {
+  display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 12px;
+  margin: 22px 4px 10px;
+  padding: 8px 0 8px 12px;
+  border-left: 3px solid var(--band, var(--purple));
+}
+.level-band-head h3 {
+  font-size: 0.94rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--band, var(--text));
+}
+.level-band-range {
+  font-size: 0.72rem; font-weight: 600;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+.level-band-blurb { font-size: 0.72rem; color: var(--text-muted); }
+.level-band-count {
+  margin-left: auto;
+  font-size: 0.72rem; font-weight: 700;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* The grid no longer owns the page's bottom gutter — the last band does. */
+.level-band .level-grid { padding-bottom: 6px; }
+.level-band:last-child .level-grid { padding-bottom: 24px; }
+
 .level-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
