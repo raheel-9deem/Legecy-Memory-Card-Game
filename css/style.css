@@ -271,17 +271,6 @@ h1, h2, h3, h4 { font-weight: 700; line-height: 1.15; }
 }
 .btn-primary:hover { transform: translateY(-3px) scale(1.02); box-shadow: 0 10px 34px rgba(139, 61, 255, 0.55), var(--glow-cyan); }
 
-/* Clickable, but the click will be refused with an explanation. Gold-edged
-   rather than disabled: the label names the balance it wants, so the button has
-   to stay legible and focusable. */
-.btn-primary.gated {
-  background: var(--glass-bg-strong);
-  color: var(--gold);
-  border-color: rgba(255, 201, 60, 0.45);
-  box-shadow: none;
-}
-.btn-primary.gated:hover { transform: none; box-shadow: inset 0 0 0 1px rgba(255, 201, 60, 0.3); }
-.btn-primary.gated::after { content: none; }
 
 .btn-secondary {
   color: var(--text);
@@ -454,13 +443,13 @@ button:disabled, .btn-primary:disabled, .btn-secondary:disabled, .btn-gold:disab
   transition: opacity var(--t-base) var(--ease);
 }
 .level-card > * { position: relative; z-index: 1; }
-.level-card:not(.locked):hover {
+.level-card:hover {
   transform: translateY(-6px) scale(1.03);
   border-color: var(--purple-light);
   box-shadow: var(--glass-shadow), var(--glow-purple);
 }
-.level-card:not(.locked):hover::before { opacity: 0.12; }
-.level-card:not(.locked):active { transform: translateY(-2px) scale(0.99); }
+.level-card:hover::before { opacity: 0.12; }
+.level-card:active { transform: translateY(-2px) scale(0.99); }
 
 .level-num { font-size: clamp(1.6rem, 4vw, 2.1rem); font-weight: 800; line-height: 1; }
 .level-size { font-size: 0.66rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-muted); }
@@ -476,32 +465,8 @@ button:disabled, .btn-primary:disabled, .btn-secondary:disabled, .btn-gold:disab
 .level-stars .star { opacity: 0.22; filter: grayscale(1); }
 .level-stars .star.earned { opacity: 1; filter: none; text-shadow: 0 0 10px rgba(255, 201, 60, 0.7); }
 
-/* Coin balance needed to enter, pinned opposite the difficulty tag. */
-.level-req {
-  position: absolute; top: 8px; left: 8px;
-  display: inline-flex; align-items: center; gap: 3px;
-  font-size: 0.58rem; font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  padding: 3px 7px; border-radius: var(--radius-pill);
-  background: rgba(255, 201, 60, 0.14);
-  color: var(--gold);
-}
-.level-req.unmet {
-  background: rgba(255, 84, 112, 0.16);
-  color: var(--red);
-}
-
-.level-card.locked { cursor: not-allowed; opacity: 0.45; filter: grayscale(1); }
-.level-card.locked .level-num { color: var(--text-muted); }
-.level-lock { font-size: 1.5rem; opacity: 0.75; }
-/* Unlocked by progress but the coin balance gate is not met. */
-.level-card.gated { cursor: not-allowed; border-color: rgba(255, 201, 60, 0.4); }
-.level-card.gated .level-num { color: var(--text-dim); }
-.level-gate {
-  display: inline-flex; align-items: center; gap: 4px;
-  font-size: 0.66rem; font-weight: 700;
-  color: var(--gold);
-}
+/* Every level is playable, so a tile has only two states worth painting:
+   cleared, and the one the player is up to. */
 .level-card.completed { border-color: rgba(55, 226, 160, 0.36); }
 .level-card.completed .level-num { color: var(--green); }
 .level-card.current {
