@@ -369,6 +369,8 @@ button:disabled, .btn-primary:disabled, .btn-secondary:disabled, .btn-gold:disab
 .screen-head { text-align: center; margin-bottom: clamp(16px, 3vh, 28px); flex: 0 0 auto; }
 .screen-head h2 { font-size: clamp(1.5rem, 5vw, 2.4rem); font-weight: 800; letter-spacing: 0.02em; }
 .screen-head p { color: var(--text-muted); font-size: 0.88rem; margin-top: 6px; }
+/* The one-line rule of the ladder, under the cleared/stars counter. */
+.screen-head .level-hint { font-size: 0.78rem; color: var(--text-dim); margin-top: 3px; }
 
 /* ---------- Difficulty bands (level select) ----------
    One section per consecutive run of same-difficulty levels. The band's accent
@@ -380,6 +382,8 @@ button:disabled, .btn-primary:disabled, .btn-secondary:disabled, .btn-gold:disab
 .level-band[data-difficulty='hard']   { --band: var(--pink); }
 .level-band[data-difficulty='expert'] { --band: var(--red); }
 .level-band[data-difficulty='master'] { --band: var(--gold); }
+/* Levels 81-100, the 8x8 summit — white-hot, above gold. */
+.level-band[data-difficulty='grandmaster'] { --band: #ffffff; }
 
 .level-band-head {
   display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 12px;
@@ -465,14 +469,49 @@ button:disabled, .btn-primary:disabled, .btn-secondary:disabled, .btn-gold:disab
 .level-stars .star { opacity: 0.22; filter: grayscale(1); }
 .level-stars .star.earned { opacity: 1; filter: none; text-shadow: 0 0 10px rgba(255, 201, 60, 0.7); }
 
-/* Every level is playable, so a tile has only two states worth painting:
-   cleared, and the one the player is up to. */
+/* A tile has four states worth painting: cleared, the one the player is up to,
+   locked behind it, and the plain unlocked replay. */
 .level-card.completed { border-color: rgba(55, 226, 160, 0.36); }
 .level-card.completed .level-num { color: var(--green); }
 .level-card.current {
   border-color: var(--cyan);
   box-shadow: var(--glass-shadow), var(--glow-cyan);
   animation: pop-in 480ms var(--ease-out) backwards, current-pulse 2.4s 600ms ease-in-out infinite;
+}
+
+/* Locked: readable but plainly out of reach. The tile stays clickable (the click
+   explains what to clear first), so it keeps a pointer cursor rather than
+   `not-allowed` — the refusal is a message, not a dead zone. */
+.level-card.locked {
+  opacity: 0.5;
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: none;
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+}
+.level-card.locked .level-num { font-size: clamp(1.2rem, 3vw, 1.5rem); filter: grayscale(1); }
+.level-card.locked .difficulty-tag { opacity: 0.7; }
+.level-card.locked:hover {
+  transform: none;
+  opacity: 0.72;
+  border-color: rgba(255, 255, 255, 0.16);
+  box-shadow: none;
+}
+.level-card.locked:hover::before { opacity: 0; }
+.level-card.locked:active { transform: none; }
+.level-lock {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 0.62rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--text-muted);
+}
+/* Refused click: a short sideways nudge, restarted per click by the screen. */
+.level-card.locked-nudge { animation: locked-nudge 320ms var(--ease-out); }
+@keyframes locked-nudge {
+  0%, 100% { transform: translateX(0); }
+  25%      { transform: translateX(-5px); }
+  75%      { transform: translateX(5px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .level-card.locked-nudge { animation: none; }
 }
 
 .difficulty-tag {
@@ -484,10 +523,16 @@ button:disabled, .btn-primary:disabled, .btn-secondary:disabled, .btn-gold:disab
 .difficulty-tag.medium { background: rgba(0, 229, 255, 0.18);  color: var(--cyan); }
 .difficulty-tag.hard   { background: rgba(241, 60, 224, 0.18); color: var(--pink); }
 .difficulty-tag.expert { background: rgba(255, 84, 112, 0.18); color: var(--red); }
-/* The top band (levels 45-70, boards of 40+ cards) — gold, above red. */
+/* The top band (levels 45-80, boards of 40+ cards) — gold, above red. */
 .difficulty-tag.master {
   background: rgba(255, 201, 60, 0.18); color: var(--gold);
   box-shadow: inset 0 0 0 1px rgba(255, 201, 60, 0.34);
+}
+/* Levels 81-100, the 8x8 boards — white on white, the only tag above gold. */
+.difficulty-tag.grandmaster {
+  background: rgba(255, 255, 255, 0.16); color: #ffffff;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.4);
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
 }
 
 /* ---------- 12. Gameplay ---------- */
@@ -1399,7 +1444,8 @@ button:disabled, .btn-primary:disabled, .btn-secondary:disabled, .btn-gold:disab
   .level-card { min-height: 126px; padding: 22px 6px 12px; gap: 4px; }
   .level-size { font-size: 0.58rem; }
   .level-best { font-size: 0.6rem; }
-  /* 70 levels span five difficulty bands, so this tag is the only thing telling
+  .level-lock { font-size: 0.54rem; letter-spacing: 0.03em; }
+  /* 100 levels span six difficulty bands, so this tag is the only thing telling
      an expert board from a master one. `display: none` threw that away; shrink it
      to a colour chip instead. The text stays in the DOM for screen readers. */
   .difficulty-tag {

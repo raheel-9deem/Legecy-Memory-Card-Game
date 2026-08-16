@@ -39,8 +39,8 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const group = (name) => console.log('\n== ' + name + ' ==');
 
 /* ---------------------------------------------------------------- */
-group('70 levels, grids exactly as specified');
-ok(TOTAL_LEVELS === 70, `TOTAL_LEVELS is 70 (got ${TOTAL_LEVELS})`);
+group('100 levels, grids exactly as specified');
+ok(TOTAL_LEVELS === 100, `TOTAL_LEVELS is 100 (got ${TOTAL_LEVELS})`);
 
 /** Fill a contiguous id range with one grid, so the map stays readable. */
 const span = (from, to, rows, cols) =>
@@ -57,6 +57,8 @@ const SPEC = {
   ...span(33, 44, 6, 6),
   ...span(45, 56, 5, 8),
   ...span(57, 70, 6, 8),
+  ...span(71, 80, 7, 8),
+  ...span(81, 100, 8, 8),
 };
 let gridOk = true, pairOk = true, fieldOk = true;
 const SPEC_COUNT = Object.keys(SPEC).length;
@@ -68,19 +70,28 @@ for (const [id, [r, c]] of Object.entries(SPEC)) {
     fieldOk = false; console.log(`     L${id}: missing a required field`);
   }
 }
-ok(SPEC_COUNT === 70, `the spec map covers all 70 levels (got ${SPEC_COUNT})`);
+ok(SPEC_COUNT === 100, `the spec map covers all 100 levels (got ${SPEC_COUNT})`);
 ok(gridOk, 'every level matches the requested grid size');
 ok(pairOk, 'pairs === rows*cols/2 on every level');
 ok(fieldOk, 'every level carries timeLimit, requiredCoins, theme, difficulty');
 ok(LEVELS.every((l) => (l.rows * l.cols) % 2 === 0), 'every grid holds an even card count');
 ok(LEVELS.every((l) => THEME_IDS.includes(l.theme)), 'every level theme resolves to a real symbol set');
 ok(LEVELS.every((l) => l.requiredCoins >= 0), 'coin gates are non-negative');
-ok(LEVELS.every((l) => ['easy', 'medium', 'hard', 'expert', 'master'].includes(l.difficulty)), 'difficulty labels are valid');
+ok(LEVELS.every((l) => ['easy', 'medium', 'hard', 'expert', 'master', 'grandmaster'].includes(l.difficulty)),
+  'difficulty labels are valid');
 ok(getLevel(999).id === 1 && getLevel(undefined).id === 1, 'getLevel falls back to level 1 on a bad id');
-ok(hasNextLevel(69) && !hasNextLevel(70), 'level 70 is the last level');
+ok(hasNextLevel(99) && !hasNextLevel(100), 'level 100 is the last level');
 ok(getLevel(44).difficulty === 'expert' && getLevel(45).difficulty === 'master', 'the master band opens at level 45');
+ok(getLevel(80).difficulty === 'master' && getLevel(81).difficulty === 'grandmaster',
+  'the grandmaster band opens at level 81');
 ok(getLevel(19).difficulty === 'expert' && getLevel(18).difficulty === 'hard', 'the original 20 levels keep their difficulty bands');
-ok(getLevel(70).pairs === 24, 'the last level is the 24-pair ceiling');
+ok(getLevel(70).pairs === 24 && getLevel(80).pairs === 28 && getLevel(100).pairs === 32,
+  'the ladder climbs 24 -> 28 -> 32 pairs and tops out at 32');
+// The ceiling is bounded by the symbol supply: a board with more pairs than a
+// theme has symbols would deal the same emoji as two different pairs.
+const minSupply = Math.min(...THEME_IDS.map((id) => getTheme(id).symbols.length));
+ok(LEVELS.every((l) => l.pairs <= minSupply),
+  `no level asks for more pairs than the thinnest theme can supply (${minSupply})`);
 
 group('time limits decrease within each grid tier');
 const tiers = new Map();
