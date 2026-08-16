@@ -120,7 +120,7 @@ export default {
         ${won ? coinPanel(coins, params.purse) : ''}
 
         ${params.unlockedLevel
-          ? `<p class="result-unlock">🚩 Level ${params.unlockedLevel} reached — a new furthest point</p>`
+          ? `<p class="result-unlock">🔓 Level ${params.unlockedLevel} unlocked</p>`
           : ''}
         ${params.isNewStarRecord ? '<p class="result-record">★ New star record for this level!</p>' : ''}
         ${params.isNewTimeRecord ? `<p class="result-record">⏱ New best time — ${formatTime(timeUsed)}</p>` : ''}
@@ -176,8 +176,11 @@ export default {
 
       switch (action) {
         case 'next': {
-          // Every level is open, so this only clamps at the last one.
-          router.navigate('game', { levelId: Math.min(levelId + 1, TOTAL_LEVELS) });
+          // Only ever offered for a level the clear just opened, and clamped at
+          // the top of the ladder so a 101st level can never be asked for.
+          const target = Math.min(levelId + 1, TOTAL_LEVELS);
+          if (store.isUnlocked(target)) router.navigate('game', { levelId: target });
+          else router.navigate('levels');
           break;
         }
         case 'replay': router.navigate('game', { levelId }); break;
