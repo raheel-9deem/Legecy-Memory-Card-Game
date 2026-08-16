@@ -241,13 +241,13 @@ for (const tier of new Set(bandNames)) {
   ok(new RegExp(`\\[data-difficulty=['"]${tier}['"]\\]`).test(css), `.level-band carries an accent for '${tier}'`);
   ok(new RegExp(`${tier}:\\s*\\{`).test(levelSelSrc), `'${tier}' has a band label`);
 }
-// A 70-tile grid scrolls, and scrollIntoView() walks every scrollable ancestor —
+// A 100-tile grid scrolls, and scrollIntoView() walks every scrollable ancestor —
 // which dragged the sticky header off-screen. Drive the one container instead.
 // Strip comments first: the note in level-select.js names the method it avoids.
 const levelSelCode = levelSelSrc.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 ok(!/scrollIntoView/.test(levelSelCode), 'the "you are here" scroll does not use scrollIntoView');
 ok(/scrollTop/.test(levelSelCode), 'it sets scrollTop on the level container directly');
-// Five bands means the difficulty tag is the only thing separating an expert
+// Six bands means the difficulty tag is the only thing separating an expert
 // board from a master one, so the mobile query may shrink it but not hide it.
 const mobileQuery = css.match(/@media[^{]*620px[^{]*\{[\s\S]*?\n\s*\}\s*\n\s*(?:@media|\/\*|$)/)?.[0] || '';
 ok(mobileQuery.length > 0, 'the 620px mobile query is present');
