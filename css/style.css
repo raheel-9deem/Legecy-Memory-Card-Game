@@ -1131,6 +1131,41 @@ button:disabled, .btn-primary:disabled, .btn-secondary:disabled, .btn-gold:disab
 .setting-label { font-size: 0.9rem; font-weight: 500; }
 .setting-desc { font-size: 0.7rem; color: var(--text-muted); margin-top: 2px; }
 
+/* Volume slider — the one range input in the app, so it is styled here rather
+   than as a shared component. Both vendor thumb pseudo-elements are needed:
+   they cannot be combined into one selector list, since an unknown pseudo in
+   the list invalidates the whole rule. */
+.setting-slider { display: flex; align-items: center; gap: 10px; flex: 0 0 auto; }
+.setting-slider input[type='range'] {
+  -webkit-appearance: none; appearance: none;
+  width: 108px; height: 4px;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(90deg, var(--purple), var(--cyan));
+  cursor: pointer;
+}
+.setting-slider input[type='range']:disabled { opacity: 0.35; cursor: not-allowed; }
+.setting-slider input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  border: none;
+  box-shadow: 0 2px 8px rgba(4, 0, 20, 0.6);
+}
+.setting-slider input[type='range']::-moz-range-thumb {
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  border: none;
+  box-shadow: 0 2px 8px rgba(4, 0, 20, 0.6);
+}
+.setting-value {
+  font-size: 0.72rem; font-weight: 700;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  min-width: 34px; text-align: right;
+}
+
 /* Toggle switch */
 .switch { position: relative; flex: 0 0 auto; width: 50px; height: 28px; }
 .switch input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }

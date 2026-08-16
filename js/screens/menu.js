@@ -118,6 +118,9 @@ function openSettings() {
       // the WebAudio context from inside this gesture, and it plays its own cue.
       if (key === 'sound') {
         audio.setMuted(!toggle.checked);
+        // Volume is meaningless while muted — follow the switch.
+        const slider = settingsEl.querySelector('input[data-volume]');
+        if (slider) slider.disabled = !toggle.checked;
       } else {
         store.setSetting(key, toggle.checked);
         audio.play('click');
@@ -139,6 +142,21 @@ function openSettings() {
     }
   });
 
+  // A drag fires `input` continuously, so the live value is applied here and the
+  // confirmation cue waits for `change` — one beep per adjustment, not per pixel.
+  settingsEl.addEventListener('input', (e) => {
+    const slider = e.target.closest('input[data-volume]');
+    if (!slider) return;
+    const pct = Number(slider.value);
+    audio.setVolume(pct / 100);
+    const label = settingsEl?.querySelector('#volume-value');
+    if (label) label.textContent = `${pct}%`;
+  });
+
+  settingsEl.addEventListener('change', (e) => {
+    if (e.target.closest('input[data-volume]')) audio.play('click');
+  });
+
   document.body.appendChild(settingsEl);
 }
 
@@ -158,6 +176,27 @@ function toggleRow(key, label, desc, checked) {
         <input type="checkbox" data-setting="${key}" ${checked ? 'checked' : ''} aria-label="${label}">
         <span class="switch-track"></span>
       </label>
+    </div>
+  `;
+}
+
+/**
+ * Volume, as a real 0–100 control rather than the binary the sound switch was
+ * doing on its own. It sits directly under that switch and goes inert with it.
+ */
+function volumeRow(soundOn, volume) {
+  const pct = Math.round(volume * 100);
+  return `
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">Volume</div>
+        <div class="setting-desc">Applies to every cue and fanfare</div>
+      </div>
+      <div class="setting-slider">
+        <input type="range" min="0" max="100" step="5" value="${pct}"
+               data-volume="master" aria-label="Volume" ${soundOn ? '' : 'disabled'}>
+        <span class="setting-value" id="volume-value">${pct}%</span>
+      </div>
     </div>
   `;
 }
