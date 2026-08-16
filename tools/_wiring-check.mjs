@@ -188,8 +188,24 @@ ok(/unlockedLevel\s*=\s*levelId\s*\+\s*1/.test(storageSrc), 'clearing a level un
 ok(/levelId\s*<\s*TOTAL_LEVELS/.test(storageSrc), 'and never unlocks past the last level');
 ok(/player:\s*\{[^}]*createdAt/.test(storageSrc), 'the save file carries a player record');
 ok(/bestTime/.test(levelSelSrc), 'level select shows the best time');
-ok(/level-req/.test(levelSelSrc), 'level select shows the coin balance a level gates on');
-ok(/level-lock/.test(levelSelSrc), 'locked levels show a lock icon');
+
+// Every one of the 70 levels is playable from a fresh save. These are the
+// places that used to withhold one — a padlock tile, a coin-balance pill, a
+// disabled button, a refused click, a refusal inside the store — and none of
+// them may come back. Comments are stripped first because the modules explain
+// the removal using the very words being searched for.
+const bare = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+const levelSelBare = bare(levelSelSrc);
+const storageBare = bare(storageSrc);
+ok(!/level-lock|level-req/.test(levelSelBare), 'no level tile renders a padlock or a coin-gate pill');
+ok(!/aria-disabled/.test(levelSelBare), 'no level tile is rendered disabled');
+ok(!/canPlay|isUnlocked/.test(levelSelBare), 'level select does not gate the click on an entry check');
+ok(!/reason:\s*'(locked|coins)'/.test(storageBare), 'canPlay has no locked or too-poor refusal left');
+ok(/n\s*>=\s*1\s*&&\s*n\s*<=\s*TOTAL_LEVELS/.test(storageBare),
+  'isUnlocked is a range check across the whole ladder, not a progress check');
+ok(!/canPlay/.test(bare(winSrc)), 'the next-level button is not gated either');
+ok(/requiredCoins:\s*0/.test(levelsSrc) && !/function gates\(/.test(levelsSrc),
+  'every level definition carries a zero coin gate');
 ok(/starDetail/.test(winSrc) && /starDetail/.test(gpSrc), 'the per-star detail reaches the win screen');
 ok(/--i:/.test(winSrc) && /var\(--i/.test(css), 'the star reveal is staggered by index');
 const levelCardBlock = css.replace(/\/\*[\s\S]*?\*\//g, '').match(/\.level-card\s*\{[^}]*\}/s)?.[0] || '';

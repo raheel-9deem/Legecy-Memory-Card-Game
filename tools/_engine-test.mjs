@@ -400,8 +400,8 @@ group('progress: unlocking, records and player data in localStorage');
 memStore.clear();
 store.reset();
 store.load();
-ok(store.state.unlockedLevel === 1, 'a fresh save has only level 1 unlocked');
-ok(store.isUnlocked(1) && !store.isUnlocked(2), 'level 2 stays locked until level 1 is cleared');
+ok(store.state.unlockedLevel === 1, 'a fresh save starts its progress marker at level 1');
+ok(store.isUnlocked(1) && store.isUnlocked(2), 'and level 2 is open anyway — nothing is locked');
 ok(typeof store.state.player.createdAt === 'string', 'the player record is stamped on first load');
 ok(typeof store.state.player.lastPlayed === 'string', 'lastPlayed is stamped every session');
 
@@ -473,19 +473,22 @@ ok(markup.includes('timer-ring-arc') && markup.includes('stroke-dasharray'), 'ri
 ok(markup.includes('role="timer"'), 'the ring is announced as a timer');
 ok(new TimerRing().reset(60) instanceof TimerRing, 'reset() is safe before attach (no DOM)');
 
-group('coin gate on level entry');
+group('every level is enterable');
 store.load();
+// The two things that used to withhold a level: an empty purse and no progress.
 store.state.coins = 0;
-store.state.unlockedLevel = 20;
-const gated = LEVELS.find((l) => l.requiredCoins > 0);
-ok(store.canPlay(1).ok === true, 'level 1 is always enterable');
-ok(store.canPlay(gated.id).ok === false && store.canPlay(gated.id).reason === 'coins',
-  `L${gated.id} is blocked at 0 coins (needs ${gated.requiredCoins})`);
-store.state.coins = gated.requiredCoins;
-ok(store.canPlay(gated.id).ok === true, 'holding the required balance opens the level');
-ok(store.state.coins === gated.requiredCoins, 'the gate is a balance check, not a fee');
 store.state.unlockedLevel = 1;
-ok(store.canPlay(5).reason === 'locked', 'an un-reached level reports "locked", not "coins"');
+const refused = LEVELS.filter((l) => !store.canPlay(l.id).ok);
+ok(refused.length === 0,
+  `all ${LEVELS.length} levels are enterable at 0 coins from a fresh save (${refused.length} refused)`);
+ok(LEVELS.every((l) => store.isUnlocked(l.id)), 'and every level id reports as unlocked');
+ok(LEVELS.every((l) => l.requiredCoins === 0), 'no level definition carries a coin gate');
+ok(store.canPlay(LEVELS.length).ok === true, 'the last level is enterable without clearing the 69 before it');
+ok(store.state.coins === 0, 'entering a level costs nothing');
+// A bad id is still refused — that is the only remaining refusal branch, and it
+// has to report a reason rather than throw.
+ok(store.canPlay(0).ok === false && store.canPlay(0).reason === 'unknown', 'id 0 is not a level');
+ok(store.canPlay(LEVELS.length + 1).ok === false, 'an id past the last level is not a level');
 
 group('store catalogue');
 const themeItems = STORE_ITEMS.filter((i) => i.kind === 'theme');
@@ -634,23 +637,27 @@ ok(gLock.usePowerup('hint') === false && gLock.usePowerup('freeze') === false,
   'and neither fires once the round has ended');
 gLock.destroy();
 
-group('the gate reports what it wants, not just "no"');
-// The win screen's next-level button and the level-select tile both print the
-// balance the gate is asking for. A refusal with no number renders as a dead
-// button, so requiredCoins has to come back on every branch.
-const gateLevel = LEVELS.find((l) => l.requiredCoins > 0);
-store.state.unlockedLevel = TOTAL_LEVELS;
-store.state.coins = gateLevel.requiredCoins - 1;
-const shortGate = store.canPlay(gateLevel.id);
-ok(shortGate.ok === false && shortGate.reason === 'coins',
-  `L${gateLevel.id} is still refused one coin short of its gate`);
-ok(shortGate.requiredCoins === gateLevel.requiredCoins,
-  `the refusal carries the figure to display (${shortGate.requiredCoins})`);
+group('progress is tracked but never withholds');
+// `unlockedLevel` survives as *progress* — level select marks the tile the
+// player is up to and scrolls to it. What it must not do any more is decide
+// what is playable, so a save sitting at level 1 still opens level 70.
+store.load();
 store.state.unlockedLevel = 1;
-const lockedGate = store.canPlay(gateLevel.id);
-ok(lockedGate.requiredCoins === gateLevel.requiredCoins,
-  'and so does a "locked" refusal, so the tile can show both facts at once');
-ok(store.canPlay(1).requiredCoins === 0, 'an ungated level asks for nothing');
+store.state.coins = 0;
+ok(store.canPlay(TOTAL_LEVELS).ok === true, 'a save parked at level 1 can still enter level 70');
+const clear7 = store.recordWin(7, { stars: 3, time: 20, moves: 12 });
+ok(store.state.unlockedLevel === 8, 'clearing a level still advances the progress marker');
+ok(clear7.unlockedLevel === 8, 'and still reports the advance so the win screen can announce it');
+// Clearing out of order must not walk the marker backwards.
+store.recordWin(3, { stars: 1, time: 40, moves: 30 });
+ok(store.state.unlockedLevel === 8, 'clearing an earlier level does not drag the marker back');
+const last = store.recordWin(TOTAL_LEVELS - 1, { stars: 3, time: 30, moves: 24 });
+ok(store.state.unlockedLevel === TOTAL_LEVELS && last.unlockedLevel === TOTAL_LEVELS,
+  'clearing the second-to-last level walks the marker onto the last one');
+const past = store.recordWin(TOTAL_LEVELS, { stars: 3, time: 30, moves: 24 });
+ok(store.state.unlockedLevel === TOTAL_LEVELS && past.unlockedLevel === null,
+  'and clearing the last level leaves it there rather than running past the ladder');
+ok(store.canPlay(1).requiredCoins === 0, 'no level asks for a balance');
 
 group('audio settings survive an old save file');
 // `volume` did not exist when v2 saves were first written. A missing key must
