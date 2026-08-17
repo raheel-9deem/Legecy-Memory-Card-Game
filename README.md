@@ -299,19 +299,23 @@ best time / best stars / clear count, purchases and settings. Best records only 
 improve; a weaker replay leaves them alone, and clearing an earlier level never drags the
 marker backwards.
 
-**Level select** groups all 70 into five difficulty bands — Warm-up, Steady, Sharp, Expert
-and Master — each with its own heading, level range, count and accent colour, and scrolls to
-where you are up to. The bands are derived from each level's own `difficulty`, not from
-hard-coded id ranges, so re-tiering a level in `core/levels.js` moves it between bands with
-no second edit. Each card carries its number, grid size, difficulty, your best time and your
-stars. Every tile is live — there are no padlocks and no disabled tiles — so a tile only ever
-reads as cleared (green) or as the one you are up to (cyan, pulsing).
+**Level select** groups all 100 into six difficulty bands — Warm-up, Steady, Sharp, Expert,
+Master and Grandmaster — each with its own heading, level range, count and accent colour, and
+scrolls to where you are up to. The bands are derived from each level's own `difficulty`, not
+from hard-coded id ranges, so re-tiering a level in `core/levels.js` moves it between bands
+with no second edit. Each card carries its number, grid size, difficulty, your best time and
+your stars, so a tile reads as cleared (green), as the one you are up to (cyan, pulsing), or
+as locked — dimmed, a padlock in place of the number, and `🔒 Clear N` in place of the best
+time. A locked tile is deliberately **not** a `disabled` button: `disabled` swallows the
+click and leaves the player guessing, so the tile stays clickable, carries `aria-disabled`
+for assistive tech, and answers a click by naming the level to clear first and shaking once.
 
 **Win screen** reveals the stars, then time, moves and coins earned with the payout
-itemised line by line, the score and best combo, a "Level N reached" pill and a note when
+itemised line by line, the score and best combo, a "🔓 Level N unlocked" pill and a note when
 you have beaten your own record — then offers **Play Next Level**, Play Again, Level Select
-or Main Menu. Level 70 drops the next-level button and shows an "every level cleared" line
-instead.
+or Main Menu. The next-level button is only offered when the clear actually opened that
+level, so a replay of an old level does not offer a jump past your furthest clear. Level 100
+drops the button and shows an "every level cleared" line instead.
 
 Keyboard: `Esc` / `P` pause, `M` main menu. The board auto-pauses if you switch tabs.
 
