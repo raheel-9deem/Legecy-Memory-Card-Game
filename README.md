@@ -339,7 +339,7 @@ node tools/_build-win.mjs
 # Generic mirror — pass an absolute mirror path on any platform:
 node tools/_build-check.mjs js .mirror
 
-node tools/_engine-test.mjs "$PWD/.mirror"        # 262 headless engine assertions
+node tools/_engine-test.mjs "$PWD/.mirror"        # 265 headless engine assertions
 node tools/_all-levels-test.mjs "$PWD/.mirror"    #  14 every level dealt, opened in turn and cleared
 node tools/_hint-test.mjs "$PWD/.mirror"          #  15 hint reveals-exactly-the-right-cards assertions
 node tools/_reveal-payload-test.mjs               #  16 pair/mismatch/unflip payload is 2 cards, never the board
@@ -347,7 +347,7 @@ node tools/_powerup-coin-test.mjs                #  37 per-use coin-fee assertio
 node tools/_wiring-check.mjs .                    # 237 static wiring/CSS checks
 ```
 
-581 assertions in total, and every runner exits non-zero on a single failure.
+584 assertions in total, and every runner exits non-zero on a single failure.
 
 The Windows mirror builder (`_build-win.mjs`) writes the `.mjs` copy into `./scratch-mmc`
 and takes no arguments; the generic `_build-check.mjs` takes source and destination. Either
