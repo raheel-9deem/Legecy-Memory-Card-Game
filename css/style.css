@@ -545,7 +545,7 @@ button:disabled, .btn-primary:disabled, .btn-secondary:disabled, .btn-gold:disab
   width: 100%;
 }
 
-/* Set by layoutBoard() when the 24-pair grid hits its minimum card size and
+/* Set by layoutBoard() when the 32-pair grid hits its minimum card size and
    still will not fit — scrolling the board beats spilling it under the game bar
    or shrinking the cards past the point of being readable. */
 .board-wrap.cramped {

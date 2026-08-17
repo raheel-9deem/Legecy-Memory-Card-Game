@@ -18,7 +18,7 @@ import { comboFlash, flyCoins, matchSparks } from '../ui/effects.js';
 import { timerRing, TimerRing } from '../ui/timer-ring.js';
 
 const POWERUP_ORDER = ['hint', 'freeze', 'shuffle'];
-/** Smallest card the 24-pair boards may shrink to before the board scrolls. */
+/** Smallest card the 32-pair boards may shrink to before the board scrolls. */
 const MIN_CARD_W = 34;
 const MIN_CARD_H = 44;
 
@@ -257,7 +257,7 @@ function layoutBoard(rows, cols) {
     ({ cw, ch } = fit(availW));
   }
 
-  // Floors keep a 6×8 board legible on a phone, but they can push the grid past
+  // Floors keep an 8×8 board legible on a phone, but they can push the grid past
   // the wrap — so let the board scroll rather than spill under the game bar.
   const finalCw = Math.max(MIN_CARD_W, Math.floor(cw));
   const finalCh = Math.max(MIN_CARD_H, Math.floor(ch));

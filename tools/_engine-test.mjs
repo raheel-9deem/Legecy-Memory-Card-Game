@@ -692,6 +692,15 @@ const past = store.recordWin(TOTAL_LEVELS, { stars: 3, time: 30, moves: 24 });
 ok(store.state.unlockedLevel === TOTAL_LEVELS && past.unlockedLevel === null,
   'and clearing the last level leaves it there rather than running past the ladder');
 ok(store.canPlay(TOTAL_LEVELS + 1).ok === false, 'there is no level past the last one to unlock');
+// recordWin is the only thing that grants progress, so it is the only place a
+// bad id could invent a level. A "NaN" key in the save file is not recoverable.
+const junkWin = store.recordWin(TOTAL_LEVELS + 50, { stars: 3, time: 30, moves: 24 });
+ok(junkWin.unlockedLevel === null && store.state.unlockedLevel === TOTAL_LEVELS,
+  'a win recorded for a level that does not exist moves the marker nowhere');
+ok(store.recordWin('nope', { stars: 3, time: 1, moves: 1 }).unlockedLevel === null,
+  'and neither does one for an id that is not a number');
+ok(!Object.keys(store.state.levels).some((k) => !Number.isInteger(Number(k))),
+  'no junk key was written into the save file');
 
 group('a save file is repaired rather than trusted');
 // A save written while every level was open can hold clears far above its

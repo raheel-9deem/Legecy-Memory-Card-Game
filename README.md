@@ -339,44 +339,55 @@ node tools/_build-win.mjs
 # Generic mirror — pass an absolute mirror path on any platform:
 node tools/_build-check.mjs js .mirror
 
-node tools/_engine-test.mjs "$PWD/.mirror"        # 240 headless engine assertions
-node tools/_all-levels-test.mjs "$PWD/.mirror"    #   9 every level dealt, entered and cleared
+node tools/_engine-test.mjs "$PWD/.mirror"        # 262 headless engine assertions
+node tools/_all-levels-test.mjs "$PWD/.mirror"    #  14 every level dealt, opened in turn and cleared
 node tools/_hint-test.mjs "$PWD/.mirror"          #  15 hint reveals-exactly-the-right-cards assertions
 node tools/_reveal-payload-test.mjs               #  16 pair/mismatch/unflip payload is 2 cards, never the board
 node tools/_powerup-coin-test.mjs                #  37 per-use coin-fee assertions
-node tools/_wiring-check.mjs .                    # 228 static wiring/CSS checks
+node tools/_wiring-check.mjs .                    # 237 static wiring/CSS checks
 ```
 
-545 assertions in total, and every runner exits non-zero on a single failure.
+581 assertions in total, and every runner exits non-zero on a single failure.
 
 The Windows mirror builder (`_build-win.mjs`) writes the `.mjs` copy into `./scratch-mmc`
 and takes no arguments; the generic `_build-check.mjs` takes source and destination. Either
 way, pass the mirror an **absolute** path to the test runners — they build `file://` URLs
 from it, and a bare relative path resolves to a non-absolute URL on Windows.
 
-The engine suite covers deck integrity on all 70 levels, the first-flip clock, the 1s
+The engine suite covers deck integrity on all 100 levels, the first-flip clock, the 1s
 mismatch hold, combo scoring and combo-match counting, power-ups, the 3-star boundaries,
 the coin formula (including part-second flooring and loss payouts), unlock progression,
 coin-bank persistence across a reload, and that the Coming Soon teasers cannot be purchased
 at any price. It also pins the round-shape rules that are easy to regress: hard mode's
 75% clock with its 10-second floor reported through `snapshot().timeLimit` on every one of
-the 70 levels, the hard-mode coin bonus as a line item whose itemised rows still sum to the
+the 100 levels, the hard-mode coin bonus as a line item whose itemised rows still sum to the
 headline figure, a pair landing **on the final tick** scoring as a win rather than a loss
 (the completion check is deferred behind the match animation, so the expiring tick has to
 ask the board directly), power-ups refusing to fire while the board is locked or the round
-is over, every level being enterable from a fresh save with 🪙0, the progress marker still
-advancing on a clear without ever deciding what is playable, and a `volume` key missing from
-an older save file reading as full volume rather than silence.
+is over, and a `volume` key missing from an older save file reading as full volume rather
+than silence.
 
-The **all-levels suite** is the one that takes "all 70 levels are in the game" literally: it
-plays every level from the first flip to the win — twice, on two different symbol sets, 140
+Two groups are about the lock specifically. **The ladder is walked in order**: a fresh save
+opens exactly level 1 and refuses level 2 with the level to clear first; a 99,999-coin purse
+still buys nothing; a replay unlocks nothing and cannot roll the marker back; a clear at the
+top of the ladder does not run past it; and ids outside the ladder (`0`, `101`, `1.5`,
+`'nope'`) are refused as *unknown* rather than merely locked. **A save file is repaired
+rather than trusted**: a legacy file whose marker says level 1 but which records a clear at
+42 comes back with 43 open and 44 shut, and markers of `0`, `-5`, `null`, `'nope'`, `999`
+and `1.5` all land somewhere inside the ladder instead of locking the player out.
+
+The **all-levels suite** is the one that takes "all 100 levels are in the game" literally: it
+plays every level from the first flip to the win — twice, on two different symbol sets, 200
 rounds in all — and checks each round dealt the right number of cards, dealt every symbol as
 a true pair, ended `won` with the board reporting complete, took exactly one move per pair
-and paid out coins. It also proves no theme is short of symbols for any level's pair count
-(a 6×8 board needs 24 distinct symbols and there are 24 in every set) and that no level's
-clock is under 5 seconds per pair. Rather than sleep through 1123 match animations it swaps
-`_defer` for a synchronous call per instance — the engine's own completion check still runs
-inside that callback, only the wait is skipped.
+and paid out coins. It also walks the whole ladder the way a player does, asserting each
+clear opens exactly one more level and never two, proves no theme is short of symbols for any
+level's pair count (an 8×8 board needs 32 distinct symbols and there are 32 in every set) and
+that no level's clock is under 5 seconds per pair. Rather than sleep through 1993 match
+animations it swaps `_defer` for a synchronous call per instance — the engine's own completion
+check still runs inside that callback, only the wait is skipped. Note that the playthroughs
+bypass `canPlay()` on purpose: the engine deals any level it is handed, and the lock lives in
+storage where the screens consult it.
 
 The **hint suite** pins the hint half of the old "revealing a pair reveals the
 whole board" bug — `_hintTargets()` returns only the partner (1) or a single pair (2), never
@@ -400,17 +411,19 @@ codebase names a cue that exists in `SOUNDS` — a typo is silent rather than an
 static checking is the only thing that catches it — each of the three power-up keys is a cue
 name, and the signal chain matches the diagram above, including that the limiter is the
 *only* node reaching `ctx.destination` (anything else connecting directly would bypass it
-and let the win stack clip). For the **70-level UI**: that `TOTAL_LEVELS` is derived from
+and let the win stack clip). For the **100-level UI**: that `TOTAL_LEVELS` is derived from
 the table, that level select's bands come from `difficulty` rather than hard-coded id
 ranges, that the "you are here" scroll drives its own container instead of
 `scrollIntoView()` (which walked every scrollable ancestor and dragged the sticky header
 off-screen), and that the mobile query shrinks the difficulty tag to a colour chip rather
-than hiding it — with five bands it is the only thing separating an expert board from a
-master one. It also guards the "every level is open" rule from the other direction, by
-asserting the removed pieces cannot come back: no padlock or coin pill in a tile, no
-`aria-disabled` tile, no entry check gating the click in level select or on the win screen's
-next-level button, no `locked`/`coins` refusal left in `canPlay`, and a zero coin gate on
-every level definition.
+than hiding it — with six bands it is the only thing separating an expert board from a
+master one. It also checks the lock is enforced at every door and only by a clear: a padlock
+line and `aria-disabled` on a locked tile but never the real `disabled` attribute (which
+would swallow the click), an entry check gating the click in level select, the board screen
+bouncing a locked level with `replace: true`, the win screen's next-level button asking
+`isUnlocked` first, a `locked` refusal in `canPlay` measured against the progress marker,
+the save repair reading the file's clears — and, from the other direction, **no** `coins`
+refusal anywhere and a zero coin gate on every level definition.
 
 Layout, glow and animation are verified by code inspection and these tests — there is no
 headless browser here, so no rendered-pixel check.

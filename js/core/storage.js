@@ -199,6 +199,17 @@ class SaveStore {
    */
   recordWin(id, { stars, time, moves }) {
     const levelId = Number(id);
+    // A win for something that is not a level would write a "NaN" (or "999")
+    // key into the save file and, worse, walk the unlock marker to it — so the
+    // one place that grants progress refuses an id the ladder does not hold.
+    if (!Number.isInteger(levelId) || levelId < 1 || levelId > TOTAL_LEVELS) {
+      return {
+        record: this.getLevelRecord(levelId),
+        isNewStarRecord: false,
+        isNewTimeRecord: false,
+        unlockedLevel: null,
+      };
+    }
     const prev = this.getLevelRecord(levelId);
     const record = {
       cleared: true,
