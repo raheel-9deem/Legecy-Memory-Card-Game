@@ -1,7 +1,7 @@
 # Memory Master
 
 A polished single-page memory card game — glass morphism UI, neon accents, animated
-particle background, 70 levels, coins, a store and power-ups. No build step, no
+particle background, 100 levels, coins, a store and power-ups. No build step, no
 dependencies, no bundler.
 
 ## Running it
@@ -28,17 +28,17 @@ js/
   main.js               Bootstrap — wires storage, header, router, particles, pause
   core/
     game.js             Engine: GameManager, GameBoard, Card (no DOM)
-    levels.js           70 level definitions + the 3-star rating maths
+    levels.js           100 level definitions + the 3-star rating maths
     coins.js            Coin payout formula and the persistent coin bank
     router.js           SPA router; lazy-loads screens with dynamic import()
     storage.js          localStorage save file: player, progress, coins
     events.js           EventBus (EventTarget) + EVENTS name table
   data/
-    themes.js           12 emoji symbol sets (24 symbols each) + random selection
+    themes.js           12 emoji symbol sets (32 symbols each) + random selection
     store-items.js      Card backs, store catalogue, power-up metadata
   screens/
     menu.js             Neon title, Play / Store / Settings, settings modal
-    level-select.js     All 70 levels in five difficulty bands, none locked
+    level-select.js     All 100 levels in six bands; locked tiles show a padlock
     gameplay.js         Board rendering, driven entirely by engine events
     store.js            Tabbed shop: card backs, themes, power-ups, Coming Soon
     win.js              Result screen: star reveal, coin breakdown, next level
@@ -79,38 +79,54 @@ export default {
 
 ## Levels
 
-70 levels in ten grid tiers. The time budget **tightens with every level inside a tier**,
-then steps back up when the grid grows — a literal countdown across all 70 would make the
-24-pair board unwinnable. Every level still allows at least 5 seconds per pair.
+100 levels in twelve grid tiers. The time budget **tightens with every level inside a tier**,
+then steps back up when the grid grows — a literal countdown across all 100 would make the
+32-pair board unwinnable. Every level still allows at least 5 seconds per pair.
 
-| Levels | Grid | Pairs | Time     | Difficulty  |
-| ------ | ---- | ----- | -------- | ----------- |
-| 1–3    | 2×2  | 2     | 30→20s   | easy        |
-| 4–6    | 2×3  | 3     | 42→30s   | easy        |
-| 7–10   | 4×3  | 6     | 78→56s   | medium      |
-| 11–15  | 4×4  | 8     | 104→74s  | medium/hard |
-| 16–18  | 4×5  | 10    | 124→100s | hard        |
-| 19–20  | 6×5  | 15    | 175→158s | expert      |
-| 21–32  | 4×8  | 16    | 150→84s  | expert      |
-| 33–44  | 6×6  | 18    | 168→102s | expert      |
-| 45–56  | 5×8  | 20    | 190→124s | master      |
-| 57–70  | 6×8  | 24    | 230→152s | master      |
+| Levels | Grid | Pairs | Time     | Difficulty    |
+| ------ | ---- | ----- | -------- | ------------- |
+| 1–3    | 2×2  | 2     | 30→20s   | easy          |
+| 4–6    | 2×3  | 3     | 42→30s   | easy          |
+| 7–10   | 4×3  | 6     | 78→56s   | medium        |
+| 11–15  | 4×4  | 8     | 104→74s  | medium/hard   |
+| 16–18  | 4×5  | 10    | 124→100s | hard          |
+| 19–20  | 6×5  | 15    | 175→158s | expert        |
+| 21–32  | 4×8  | 16    | 150→84s  | expert        |
+| 33–44  | 6×6  | 18    | 168→102s | expert        |
+| 45–56  | 5×8  | 20    | 190→124s | master        |
+| 57–70  | 6×8  | 24    | 230→152s | master        |
+| 71–80  | 7×8  | 28    | 210→165s | master        |
+| 81–100 | 8×8  | 32    | 256→180s | grandmaster   |
 
-The four tiers past level 20 only ever climb: each holds more pairs than the 15 of levels
+The tiers past level 20 only ever climb: each holds more pairs than the 15 of levels
 19–20, so the ladder never revisits a smaller board. Their clocks come from `ramp(from,
-count)` — one budget per level, six seconds off each step — rather than being spelled out.
+count, step)` — one budget per level, a fixed number of seconds off each step — rather than
+being spelled out. The step shrinks as the boards grow (6s per level up to 70, then 5s and
+4s), because a 28- or 32-pair tier draining at six seconds a level would fall through the
+5-seconds-per-pair floor before the tier ended.
 
-**Every level is open from the first launch.** Nothing is locked behind the level before it
-and nothing asks for a coin balance at the door, so all 70 are playable in any order from a
-brand-new save with 🪙0. Coins are spent in the store and on power-up fees instead. Each
-level definition still carries `requiredCoins`, pinned at `0`, plus a fallback theme used
-when no random one is drawn. Grids re-orient to portrait on phones so cards stay large, and
-the 24-pair boards scroll inside the board area rather than shrinking their cards past the
-point of being readable.
+**Only level 1 is open on a fresh save.** Clearing a level unlocks the next one and nothing
+else, so the ladder is walked in order; a cleared level stays open forever and can be
+replayed for a better time or the star you missed. Nothing asks for a coin balance at the
+door — coins are spent in the store and on power-up fees, and each level definition still
+carries `requiredCoins`, pinned at `0`, plus a fallback theme used when no random one is
+drawn. Grids re-orient to portrait on phones so cards stay large, and the biggest boards
+scroll inside the board area rather than shrinking their cards past the point of being
+readable.
 
-Progress is still *tracked* — `unlockedLevel` records how far you have climbed, which is
-what level select marks as "you are here" and scrolls to — it just no longer decides what
-you are allowed to play.
+The lock is a single decision in one place: `storage.canPlay(id)` answers with `ok` plus the
+level that has to be cleared first, and the three doors into a round — the level-select
+click, the board screen's own mount, and the win screen's next-level button — all ask it
+rather than deciding for themselves. That matters because a level can be reached without
+going through the list: a stale `#/game` hash, the back button after a reset, a hand-typed
+URL. The board screen refuses those before dealing a board, so no clock starts and no coins
+can be earned on a level that has not been reached.
+
+A save file is **repaired rather than trusted** on load. `unlockedLevel` is clamped into
+range, and then raised to one past the furthest level the save records as cleared — so a
+file written while every level was open keeps everything it actually earned, and a corrupt
+or hand-edited marker cannot lock a player out of their own progress. The repair only ever
+hands access back; it never takes any away.
 
 ## Cards and matching
 
@@ -139,12 +155,14 @@ pulses. At zero the round ends on the **Game Over** screen with Retry Level / Le
 
 ## Themes
 
-12 emoji sets, 24 symbols each: fruits, animals, space, food, sports, tech, transport,
-nature, weather, music, shapes and flags. 24 is the floor, not a round number — the 6×8
-boards need 24 distinct symbols, and a set any shorter would have to repeat one and hand
-the player two identical-looking pairs. A level draws a **random theme each round** by
-default (the free "Surprise Me" store option), weighted so easy levels stay gentle and
-expert levels can pull the trickier lookalike sets. Equipping a specific theme in the
+12 emoji sets, 32 symbols each: fruits, animals, space, food, sports, tech, transport,
+nature, weather, music, shapes and flags. 32 is the floor, not a round number — the 8×8
+boards need 32 distinct symbols, and a set any shorter would have to repeat one and hand
+the player two identical-looking pairs. (`GameBoard.build()` cycles the symbol list, so a
+short set fails silently rather than loudly — hence the test that pins the supply against
+every level's pair count.) A level draws a **random theme each round** by default (the free
+"Surprise Me" store option), weighted so easy levels stay gentle and expert, master and
+grandmaster levels can pull the trickier lookalike sets. Equipping a specific theme in the
 store pins it instead.
 
 ## Stars
